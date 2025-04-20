@@ -8,16 +8,29 @@ This repository provides code and tools for training and evaluating models for *
 ## 📁 Repository Structure
 
 ```
-Audio_Declip/
-├── data/
-│   ├── train/                  # Training .wav files
-│   ├── test/                   # Testing .wav files
-│   └── pkl_data/               # Preprocessed training data (.pkl)
-├── src/                        # Core Python modules
-├── scripts/                    # Utility and run scripts
-├── models/                     # Trained models and weights
-├── results/                    # Evaluation outputs
-└── README.md
+Audio_Declip
+├── aspade.py                       # Baseline ASPADE 
+├── custom_output/                  # Evaluation outputs for custom inputs
+├── custom_sound/                   # Your own .wav files for testing
+├── custom_sound_variation/         # To find optimum window length for your audio dataset for training
+├── dynamic_aspade.py               # Dynamic ASPADE
+├── evaluate.py                     # Evaluation pipeline
+├── loss_plots/                     # Training loss visualizations
+├── main_ml.ipynb                   # Jupyter notebook for ML pipeline
+├── ml_aspade.py                    # ML based ASPADE 
+├── pipeline.py                     # Main data processing pipeline
+├── pkl_data/
+│   └── training_data.pkl           # Pickled training data
+├── requirements.txt                # Python dependencies
+├── saved_models/                   # Checkpoints and final models
+├── spade_segmentation.py           # Bridge
+├── test_data/                      # Test .wav files
+├── toolbox/                        # Utility functions for audio processing
+├── train_data/                     # Train .wav files
+├── train_data_gen.py               # Dataset generation (pkl data)  from .wav
+├── training.py                     # Main training script
+├── variation_study.py              # Analysis on variation experiments on custom_sound_variations
+└── variation_study_summary.xlsx
 ```
 
 ---
@@ -48,11 +61,11 @@ Audio_Declip/
 Place your datasets as follows:
 
 ```
-data/
-├── train/
+Audio_Declip/
+├── train_data
 │   ├── audio1.wav
 │   └── ...
-├── test/
+├── test_data
 │   ├── audioA.wav
 │   └── ...
 ├── pkl_data/
@@ -68,11 +81,10 @@ data/
 To generate training data from your own `.wav` files:
 
 ```bash
-python scripts/generate_dataset.py \
-    --input_dir data/train \
-    --output_pickle data/pkl_data/training_data.pkl \
-    --frame_size 1024 \
-    --hop_length 512
+python train_data_gen.py --audio_dir "your_audio_path" \
+    --cnt 2500 --train_dir "train_data" --test_dir "test_data" --output_path "pkl_data" \
+    --target_fs_values 16000 --clipping_thresholds 0.1 0.2 --time_clip 1 --win_len 500 \
+    --win_shift 125 --delta 300 --s_ratio 0.9 
 ```
 
 You can customize parameters like frame size and hop length depending on your model.
@@ -84,11 +96,13 @@ You can customize parameters like frame size and hop length depending on your mo
 Run the following to train the model:
 
 ```bash
-python scripts/train_model.py \
-    --data_pickle data/pkl_data/training_data.pkl \
-    --epochs 100 \
-    --batch_size 32 \
-    --save_dir models/
+python training.py --pkl_path pkl_data/training_data.pkl \
+    --epochs 200 \
+    --batch_size 1024 \
+    --save_path saved_models \
+    --plot_path loss_plots \
+    --checkpoint_freq 10 \
+    --resume 
 ```
 
 ---
@@ -98,20 +112,27 @@ python scripts/train_model.py \
 Evaluate the trained model on test `.wav` files:
 
 ```bash
-python scripts/evaluate_model.py \
-    --model_path models/best_model.pth \
-    --test_dir data/test \
-    --output_dir results/
+python evaluate.py --model_path "saved_models/final/complex_dft_unet_final.pth" \
+    --test_audio_dir "custom_sound" \
+    --output_dir "custom_output" \
+    --target_fs_values 16000 \
+    --clipping_thresholds 0.1 \
+    --time_clip 1 \
+    --factor 0.8 \
+    --eval_mode 1 \
+    --dynamic 0
 ```
 
-The declipped outputs and evaluation metrics (SNR, SDR, PESQ, etc.) will be saved in `results/`.
+The declipped outputs and evaluation metrics (SNR, SDR, PESQ, etc.) will be saved in `custom_output/`.
 
 ---
 
 ## ✍️ Notes
 
-- The code supports **forward**, **backward**, and **bidirectional** training/evaluation.
-- You can adjust training hyperparameters and model architecture from `config.py` or pass them as arguments.
+- The evaulation code ahs 3 modes - Baseline ASPADE, Dynamic ASPADE and ML based ASPADE
+- For Baseline ASPADE set eval_mode to 0 and dynamic to 0
+- For Dynamic ASPADE set eval_mode to 0 and dynamic to 1
+- For ML absed ASPADE set eval_mode to 1
 
 ---
 
