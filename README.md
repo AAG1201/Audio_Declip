@@ -82,9 +82,16 @@ To generate training data from your own `.wav` files:
 
 ```bash
 python train_data_gen.py --audio_dir "your_audio_path" \
-    --cnt 2500 --train_dir "train_data" --test_dir "test_data" --output_path "pkl_data" \
-    --target_fs_values 16000 --clipping_thresholds 0.1 0.2 --time_clip 1 --win_len 500 \
-    --win_shift 125 --delta 300 --s_ratio 0.9 
+    --cnt 2500 \
+    --train_dir "train_data" \
+    --test_dir "test_data" \
+    --output_path "pkl_data" \
+    --target_fs_values 16000 \
+    --clipping_thresholds 0.1 0.2 \
+    --time_clip 1 --win_len 500 \
+    --win_shift 125 \
+    --delta 300 \
+    --s_ratio 0.9 
 ```
 
 You can customize parameters like frame size and hop length depending on your model.
