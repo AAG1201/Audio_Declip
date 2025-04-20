@@ -1,0 +1,14 @@
+*.pkl
+*.pth
+*.log
+aagproj/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+custom_sound_variation/
+train_data/
+test_data/
+saved_models/
+data_gen_log.txt
+training_log.txt
