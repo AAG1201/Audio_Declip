@@ -135,7 +135,7 @@ python evaluate.py --model_path "saved_models/final/complex_dft_unet_final.pth" 
     --dynamic 0
 ```
 
-The declipped outputs and evaluation metrics (SNR, SDR, PESQ, etc.) will be saved in `custom_output/`.
+The declipped outputs and evaluation metrics (SDR, PESQ, etc.) will be saved in `custom_output/`.
 
 ---
 
