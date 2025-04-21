@@ -171,3 +171,11 @@ loaded_model, checkpoint = load_model(loaded_model, "saved_models/complex_dft_un
 
 train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
 visualize_frequency_attention(loaded_model, train_loader)
+
+###############################################################################################################################
+
+
+
+# To upload data to matlab
+
+# nohup rclone copy /data/AAG/MTech_Project_Final/saved_models gdrive: --drive-root-folder-id 1qMC818ggFpiL7YZ8FpsZGSW3iVOSZmOu --progress

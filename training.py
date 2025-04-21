@@ -1,9 +1,9 @@
-
 import argparse
 import pickle
 import torch
 import os
-from torch.utils.data import DataLoader
+import json
+from torch.utils.data import DataLoader, random_split
 from pipeline import (
     ComplexDFTDataset,
     ComplexDFTUNet,
@@ -12,8 +12,6 @@ from pipeline import (
 )
 import sys
 sys.stdout.reconfigure(line_buffering=True)
-
-
 
 def main(args):
     # Load training data
@@ -25,7 +23,25 @@ def main(args):
 
     # Create dataset and loader
     train_dataset = ComplexDFTDataset(inputs, targets_dft, masks, targets_sparsity, max_sparsity=args.max_sparsity)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    
+    if args.val:
+        # Determine validation split
+        dataset_size = len(train_dataset)
+        val_size = int(dataset_size * args.val_split)
+        train_size = dataset_size - val_size
+        
+        # Split the dataset
+        train_subset, val_subset = random_split(train_dataset, [train_size, val_size])
+        
+        # Create data loaders
+        train_loader = DataLoader(train_subset, batch_size=args.batch_size, shuffle=True)
+        val_loader = DataLoader(val_subset, batch_size=args.batch_size, shuffle=False)
+        
+        print(f"Training samples: {len(train_subset)}, Validation samples: {len(val_subset)}")
+    else:
+        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+        val_loader = None
+        print(f"Training samples: {len(train_dataset)}, No validation")
 
     # Determine device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -44,6 +60,9 @@ def main(args):
     
     # Check for checkpoint and load if exists
     checkpoint_path = os.path.join(args.save_path, "checkpoint.pt")
+    history_path = os.path.join(args.save_path, "loss_history.json")
+    
+    # In the checkpoint loading code
     if args.resume and os.path.exists(checkpoint_path):
         print(f"Loading checkpoint from {checkpoint_path}")
         # Load checkpoint to CPU first to avoid device mismatch
@@ -71,19 +90,40 @@ def main(args):
             scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             
         start_epoch = checkpoint['epoch'] + 1
+        
+        # Load history, ensuring validation keys exist if needed
         history = checkpoint['history']
+        if args.val:
+            # Make sure validation keys exist in the history
+            for key in ['val_total_loss', 'val_dft_loss', 'val_sparsity_loss']:
+                if key not in history:
+                    history[key] = []
+        
         best_loss = checkpoint.get('best_loss', float('inf'))
         print(f"Resuming training from epoch {start_epoch}")
-    else:
-        print("Starting training from scratch")
-        os.makedirs(args.save_path, exist_ok=True)
-        if args.plot_path:
-            os.makedirs(args.plot_path, exist_ok=True)
+        
+        # Check if loss history file exists and load it if available
+        if os.path.exists(history_path):
+            try:
+                with open(history_path, 'r') as f:
+                    saved_history = json.load(f)
+                # Update the history with saved values (in case they're more comprehensive)
+                for key in saved_history:
+                    if key in history and len(saved_history[key]) >= len(history[key]):
+                        history[key] = saved_history[key]
+                print(f"Loaded loss history from {history_path}")
+            except Exception as e:
+                print(f"Error loading loss history file: {e}")
+
+    # Create directories if they don't exist
+    os.makedirs(args.save_path, exist_ok=True)
+    os.makedirs(args.plot_path, exist_ok=True)
 
     # Train
     loss_history = train_complex_dft_unet(
         model,
         train_loader,
+        val_loader=val_loader,
         device=device,
         epochs=args.epochs,
         start_epoch=start_epoch,
@@ -96,6 +136,15 @@ def main(args):
         checkpoint_freq=args.checkpoint_freq,
         lr=args.learning_rate
     )
+    
+    # Save the loss history to a separate JSON file for easy plotting later
+    history_path = os.path.join(args.save_path, "loss_history.json")
+    try:
+        with open(history_path, 'w') as f:
+            json.dump(loss_history, f, indent=4)
+        print(f"Saved loss history to {history_path}")
+    except Exception as e:
+        print(f"Error saving loss history file: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train ComplexDFTUNet on prepared data with checkpoint support")
@@ -110,6 +159,8 @@ if __name__ == "__main__":
     parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate for optimizer")
     parser.add_argument("--checkpoint_freq", type=int, default=5, help="Save checkpoint every N epochs")
     parser.add_argument("--resume", action="store_true", help="Resume training from checkpoint if available")
+    parser.add_argument("--val", action="store_true", help="Use a validation set for training")
+    parser.add_argument("--val_split", type=float, default=0.1, help="Proportion of data to use for validation (default: 0.1)")
 
     args = parser.parse_args()
     main(args)

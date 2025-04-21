@@ -12,3 +12,7 @@ test_data/
 saved_models/
 data_gen_log.txt
 training_log.txt
+extra_codes.py
+main.ipynb
+nohup.out
+process.py

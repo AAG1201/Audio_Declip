@@ -23,7 +23,8 @@ def evaluate_model(test_audio_dir: str,
                    model_path: str,
                    train_gen_mode: int,
                    eval_mode: int,
-                   dynamic: int) -> Dict:
+                   dynamic: int,
+                   save: int) -> Dict:
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -32,21 +33,22 @@ def evaluate_model(test_audio_dir: str,
     results = {
         'file': [],
         'fs': [],
-        'threshold': [],
         'duration': [],
-        'sdr_original': [],
-        'sdr_improvement': [],
-        'processing_time': [],
+        'threshold': [],
         'clipped_percentage': [],
-        'pesq_i': [],
-        'pesq_imp': [],
-        'cycles': []
+        'sdr_orig': [],
+        'delta_sdr': [],
+        'pesq_orig': [],
+        'delta_pesq': [],
+        'cycles': [],
+        'processing_time': []
     }
+
 
     # Get all WAV files
     wav_files = [f for f in os.listdir(test_audio_dir) if f.endswith(".wav")]
     total_configs = len(target_fs_values) * len(clipping_thresholds) * len(time_clip) * len(wav_files)
-    pbar = tqdm(total=total_configs, desc="Processing files", file=sys.stdout)
+    pbar = tqdm(total=total_configs, desc="Processing files",position=0, leave=True)
 
     for target_fs in target_fs_values:
         for clipping_threshold in clipping_thresholds:
@@ -98,7 +100,7 @@ def evaluate_model(test_audio_dir: str,
                     reconstructed_signal, cycles = spade_segmentation(
                         clipped_signal, resampled_data, Ls, win_len, win_shift,
                         ps_maxit, ps_epsilon, ps_r, ps_s, F_red, masks, dynamic, model_path,
-                          train_gen_mode, eval_mode, factor )
+                        train_gen_mode,  eval_mode, factor)
 
                     processing_time = time() - start_time
 
@@ -120,25 +122,26 @@ def evaluate_model(test_audio_dir: str,
                     sdr_rec = sdr(data, reconstructed_signal)
                     sdr_imp = sdr_rec - sdr_clip
 
-                    # Save reconstructed audio
-                    dir_name = f"fs_{fs}_threshold_{clipping_threshold:.2f}"
-                    full_dir_path = os.path.join(output_dir, dir_name)
-                    os.makedirs(full_dir_path, exist_ok=True)
-                    output_path = os.path.join(full_dir_path, f"reconstructed_{audio_file}")
-                    sf.write(output_path, reconstructed_signal, fs)
+                    if save:
+                        # Save reconstructed audio
+                        dir_name = f"fs_{fs}_threshold_{clipping_threshold:.2f}"
+                        full_dir_path = os.path.join(output_dir, dir_name)
+                        os.makedirs(full_dir_path, exist_ok=True)
+                        output_path = os.path.join(full_dir_path, f"reconstructed_{audio_file}")
+                        sf.write(output_path, reconstructed_signal, fs)
 
                     # Store results
                     results['file'].append(audio_file)
                     results['fs'].append(fs)
-                    results['threshold'].append(clipping_threshold)
                     results['duration'].append(tc)
-                    results['sdr_original'].append(sdr_clip)
-                    results['sdr_improvement'].append(sdr_imp)
-                    results['processing_time'].append(processing_time)
+                    results['threshold'].append(clipping_threshold)
                     results['clipped_percentage'].append(clipped_percentage)
-                    results['pesq_i'].append(pesq_i)
-                    results['pesq_imp'].append(pesq_imp)
+                    results['sdr_orig'].append(sdr_clip)
+                    results['delta_sdr'].append(sdr_imp)
+                    results['pesq_orig'].append(pesq_i)
+                    results['delta_pesq'].append(pesq_imp)
                     results['cycles'].append(cycles)
+                    results['processing_time'].append(processing_time)
                 
                     pbar.update(1)  # Update progress bar after each file
 
@@ -167,7 +170,8 @@ def main(args):
         model_path=args.model_path,
         train_gen_mode=args.train_gen_mode,
         eval_mode=args.eval_mode,
-        dynamic=args.dynamic
+        dynamic=args.dynamic,
+        save=args.save
     )
 
 
@@ -189,11 +193,13 @@ if __name__ == "__main__":
     parser.add_argument("--factor", type=float, default=1,
                         help="Decrease the initialised k")
     parser.add_argument("--train_gen_mode", type=float, default=0,
-                        help="Decrease the initialised k")
+                        help="In data generation mode")
     parser.add_argument("--eval_mode", type=float, default=0,
-                        help="Decrease the initialised k")
+                        help="Evaluation using ML ASPADE")
     parser.add_argument("--dynamic", type=float, default=0,
-                        help="Decrease the initialised k")
+                        help="Evaluation using Baseline/Dynamic ASPADE")
+    parser.add_argument("--save", type=int, default=0,
+                        help="Save reconstructed sounds")
 
     args = parser.parse_args()
     main(args)

@@ -1,5 +1,5 @@
 import numpy as np
-from tqdm import tqdm
+import tqdm
 import torch
 import os
 from toolbox.gabwin import gabwin
@@ -104,9 +104,12 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     loaded_model = loaded_model.to(device)
+  
 
   # Main loop
-  for n in tqdm(range(N), desc="Processing", unit="iteration"):
+  # for n in tqdm(range(N), desc="Processing", unit="iteration", position=1, leave=False):
+  # for n in range(N):
+  for n in tqdm.tqdm(range(N), desc="Processing", unit="iteration", position=0, leave=True):
     # multiplying signal block with windows and choosing corresponding masks
     idx = np.mod(n * win_shift + idxrange, L)
     idx = idx.astype(int)
@@ -135,17 +138,15 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
 
     # Folding blocks together using Overlap-Add approach (OLA)
     data_rec_block = np.fft.ifftshift(data_rec_block)
-    data_rec_fin[idx] = data_rec_fin[idx] + data_rec_block * gsyn
+    data_rec_fin[idx] = data_rec_fin[idx] + np.real(data_rec_block * gsyn)
 
     if train_gen_mode:
       training_data.append([metrics['initial_estimate'], metrics['best_estimate'], metrics['best_sparsity']]) 
 
     tot_cycles += cycles
 
-
   data_rec_fin = data_rec_fin[:Ls]
 
-  
   if train_gen_mode:
     return data_rec_fin, metrics, training_data, cycles
   else:

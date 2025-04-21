@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from datetime import datetime
+import json
 
 
 class FrequencyAwareAttention(nn.Module):
@@ -185,17 +185,13 @@ class ComplexDFTDataset(torch.utils.data.Dataset):
             'target_sparsity': self.targets_sparsity[idx]
         }
 
-def train_complex_dft_unet(model, dataloader, device, epochs=100, start_epoch=0, 
-                                           optimizer=None, scheduler=None, history=None, best_loss=float('inf'),
-                                           save_path="saved_models", plot_path=None, 
-                                           checkpoint_freq=5, lr=0.001):
+def train_complex_dft_unet(model, train_loader, val_loader=None, device='cpu', epochs=100, start_epoch=0, 
+                           optimizer=None, scheduler=None, history=None, best_loss=float('inf'),
+                           save_path="saved_models", plot_path=None, 
+                           checkpoint_freq=5, lr=0.001):
     """
-    Train the complex DFT U-Net model with checkpoint support.
+    Train the complex DFT U-Net model with checkpoint support and validation.
     """
-    import matplotlib.pyplot as plt
-    import os
-    from datetime import datetime
-    import torch.nn as nn
 
     os.makedirs(save_path, exist_ok=True)
     if plot_path:
@@ -217,17 +213,25 @@ def train_complex_dft_unet(model, dataloader, device, epochs=100, start_epoch=0,
             'dft_loss': [],
             'sparsity_loss': []
         }
+        
+    # Add this code right after the history initialization:
+    # Make sure validation keys exist if validation is enabled
+    if val_loader is not None and history is not None:
+        for key in ['val_total_loss', 'val_dft_loss', 'val_sparsity_loss']:
+            if key not in history:
+                history[key] = []
 
     dft_criterion = nn.MSELoss()
     sparsity_criterion = nn.MSELoss()
 
     for epoch in range(start_epoch, epochs):
+        # Training phase
         model.train()
         epoch_loss = 0
         epoch_dft_loss = 0
         epoch_sparsity_loss = 0
 
-        for batch in dataloader:
+        for batch in train_loader:
             inputs = batch['input'].to(device)
             masks = batch['mask'].to(device)
             targets_dft = batch['target_dft'].to(device)
@@ -247,19 +251,94 @@ def train_complex_dft_unet(model, dataloader, device, epochs=100, start_epoch=0,
             epoch_dft_loss += dft_loss.item()
             epoch_sparsity_loss += sparsity_loss.item()
 
-        avg_loss = epoch_loss / len(dataloader)
-        avg_dft_loss = epoch_dft_loss / len(dataloader)
-        avg_sparsity_loss = epoch_sparsity_loss / len(dataloader)
+        avg_loss = epoch_loss / len(train_loader)
+        avg_dft_loss = epoch_dft_loss / len(train_loader)
+        avg_sparsity_loss = epoch_sparsity_loss / len(train_loader)
 
-        scheduler.step(avg_loss)
+        # Validation phase
+        val_loss = 0
+        val_dft_loss = 0
+        val_sparsity_loss = 0
+        
+        if val_loader is not None:
+            model.eval()
+            with torch.no_grad():
+                for batch in val_loader:
+                    inputs = batch['input'].to(device)
+                    masks = batch['mask'].to(device)
+                    targets_dft = batch['target_dft'].to(device)
+                    targets_sparsity = batch['target_sparsity'].to(device)
+                    
+                    pred_dft, pred_sparsity = model(inputs, masks)
+                    
+                    dft_loss = dft_criterion(pred_dft, targets_dft)
+                    sparsity_loss = sparsity_criterion(pred_sparsity, targets_sparsity / model.max_sparsity)
+                    
+                    total_loss = 1.0 * dft_loss + 0.5 * sparsity_loss
+                    
+                    val_loss += total_loss.item()
+                    val_dft_loss += dft_loss.item()
+                    val_sparsity_loss += sparsity_loss.item()
+                
+                avg_val_loss = val_loss / len(val_loader)
+                avg_val_dft_loss = val_dft_loss / len(val_loader)
+                avg_val_sparsity_loss = val_sparsity_loss / len(val_loader)
+                
+                # Use validation loss for scheduler if available
+                scheduler.step(avg_val_loss if val_loader else avg_loss)
+                
+                # # Update best loss tracking based on validation loss
+                # if avg_val_loss < best_loss:
+                #     best_loss = avg_val_loss
+                #     # Save best model
+                #     best_model_path = os.path.join(save_path, "best_model.pth")
+                #     torch.save({
+                #         'epoch': epoch,
+                #         'model_state_dict': model.state_dict(),
+                #         'optimizer_state_dict': optimizer.state_dict(),
+                #         'scheduler_state_dict': scheduler.state_dict() if scheduler else None,
+                #         'loss': avg_val_loss,
+                #         'best_loss': best_loss,
+                #         'history': history
+                #     }, best_model_path)
+                #     print(f"New best model saved with validation loss: {avg_val_loss:.6f}")
+                
+                # Add validation metrics to history
+                history['val_total_loss'].append(avg_val_loss)
+                history['val_dft_loss'].append(avg_val_dft_loss)
+                history['val_sparsity_loss'].append(avg_val_sparsity_loss)
+        else:
+            # Without validation, use training loss for scheduler
+            scheduler.step(avg_loss)
+            # Check if current model is the best
+            # if avg_loss < best_loss:
+            #     best_loss = avg_loss
+            #     # Save best model
+            #     best_model_path = os.path.join(save_path, "best_model.pth")
+            #     torch.save({
+            #         'epoch': epoch,
+            #         'model_state_dict': model.state_dict(),
+            #         'optimizer_state_dict': optimizer.state_dict(),
+            #         'scheduler_state_dict': scheduler.state_dict() if scheduler else None,
+            #         'loss': avg_loss,
+            #         'best_loss': best_loss,
+            #         'history': history
+            #     }, best_model_path)
+            #     print(f"New best model saved with training loss: {avg_loss:.6f}")
 
+        # Add training metrics to history
         history['total_loss'].append(avg_loss)
         history['dft_loss'].append(avg_dft_loss)
         history['sparsity_loss'].append(avg_sparsity_loss)
 
         # Print progress
-        print(f'Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.6f}, '
-              f'DFT Loss: {avg_dft_loss:.6f}, Sparsity Loss: {avg_sparsity_loss:.6f}')
+        if val_loader is not None:
+            print(f'Epoch [{epoch+1}/{epochs}], Train Loss: {avg_loss:.6f}, Val Loss: {avg_val_loss:.6f}, '
+                  f'Train DFT Loss: {avg_dft_loss:.6f}, Val DFT Loss: {avg_val_dft_loss:.6f}, '
+                  f'Train Sparsity Loss: {avg_sparsity_loss:.6f}, Val Sparsity Loss: {avg_val_sparsity_loss:.6f}')
+        else:
+            print(f'Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.6f}, '
+                  f'DFT Loss: {avg_dft_loss:.6f}, Sparsity Loss: {avg_sparsity_loss:.6f}')
 
         # Save checkpoint every checkpoint_freq epochs
         if (epoch + 1) % checkpoint_freq == 0:
@@ -269,46 +348,169 @@ def train_complex_dft_unet(model, dataloader, device, epochs=100, start_epoch=0,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'scheduler_state_dict': scheduler.state_dict() if scheduler else None,
-                'loss': avg_loss,
+                'loss': avg_val_loss if val_loader else avg_loss,
                 'best_loss': best_loss,
                 'history': history
             }, checkpoint_path)
             print(f"Checkpoint saved to {checkpoint_path}")
             
         # Plot and save loss history
-        if plot_path and (epoch + 1) % checkpoint_freq == 0:
+    if plot_path and (epoch + 1) % checkpoint_freq == 0:
+        os.makedirs(plot_path, exist_ok=True)
+        
+        # Set style parameters
+        plt.style.use('seaborn-v0_8-whitegrid')
+        line_width = 2.5
+        font_size = 14
+        title_size = 18
+        legend_size = 12
+        tick_size = 12
+        
+        # Create colors with better contrast
+        train_colors = ['#1f77b4', '#ff7f0e', '#2ca02c']  # Blue, Orange, Green
+        val_colors = ['#d62728', '#9467bd', '#8c564b']    # Red, Purple, Brown
+        
+        # 1. Plot training and validation separately
+        
+        # Training Loss Plots
+        fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+        
+        # Total Loss subplot
+        axes[0].plot(history['total_loss'], color=train_colors[0], linewidth=line_width, marker='o', markersize=4)
+        axes[0].set_title("Total Training Loss", fontsize=title_size, fontweight='bold')
+        axes[0].set_xlabel("Epoch", fontsize=font_size)
+        axes[0].set_ylabel("Loss", fontsize=font_size)
+        axes[0].grid(True, alpha=0.3)
+        axes[0].tick_params(axis='both', labelsize=tick_size)
+        
+        # DFT Loss subplot
+        axes[1].plot(history['dft_loss'], color=train_colors[1], linewidth=line_width, marker='o', markersize=4)
+        axes[1].set_title("DFT Training Loss", fontsize=title_size, fontweight='bold')
+        axes[1].set_xlabel("Epoch", fontsize=font_size)
+        axes[1].set_ylabel("Loss", fontsize=font_size)
+        axes[1].grid(True, alpha=0.3)
+        axes[1].tick_params(axis='both', labelsize=tick_size)
+        
+        # Sparsity Loss subplot
+        axes[2].plot(history['sparsity_loss'], color=train_colors[2], linewidth=line_width, marker='o', markersize=4)
+        axes[2].set_title("Sparsity Training Loss", fontsize=title_size, fontweight='bold')
+        axes[2].set_xlabel("Epoch", fontsize=font_size)
+        axes[2].set_ylabel("Loss", fontsize=font_size)
+        axes[2].grid(True, alpha=0.3)
+        axes[2].tick_params(axis='both', labelsize=tick_size)
+        
+        # Adjust layout and save
+        plt.tight_layout(pad=3.0)
+        plt.savefig(os.path.join(plot_path, f"training_loss_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        # Validation Loss Plots (if available)
+        if val_loader is not None and 'val_total_loss' in history and len(history['val_total_loss']) > 0:
             fig, axes = plt.subplots(1, 3, figsize=(20, 6))
-            line_width = 2.5
-            font_size = 14
-
+            
             # Total Loss subplot
-            axes[0].plot(history['total_loss'], label='Total Loss', color='tab:blue', linewidth=line_width)
-            axes[0].set_title("Total Loss", fontsize=font_size)
+            axes[0].plot(history['val_total_loss'], color=val_colors[0], linewidth=line_width, marker='o', markersize=4)
+            axes[0].set_title("Total Validation Loss", fontsize=title_size, fontweight='bold')
             axes[0].set_xlabel("Epoch", fontsize=font_size)
             axes[0].set_ylabel("Loss", fontsize=font_size)
-            axes[0].grid(True)
-            axes[0].tick_params(axis='both', labelsize=12)
-
+            axes[0].grid(True, alpha=0.3)
+            axes[0].tick_params(axis='both', labelsize=tick_size)
+            
             # DFT Loss subplot
-            axes[1].plot(history['dft_loss'], label='DFT Loss', color='tab:orange', linewidth=line_width)
-            axes[1].set_title("DFT Loss", fontsize=font_size)
+            axes[1].plot(history['val_dft_loss'], color=val_colors[1], linewidth=line_width, marker='o', markersize=4)
+            axes[1].set_title("DFT Validation Loss", fontsize=title_size, fontweight='bold')
             axes[1].set_xlabel("Epoch", fontsize=font_size)
             axes[1].set_ylabel("Loss", fontsize=font_size)
-            axes[1].grid(True)
-            axes[1].tick_params(axis='both', labelsize=12)
-
+            axes[1].grid(True, alpha=0.3)
+            axes[1].tick_params(axis='both', labelsize=tick_size)
+            
             # Sparsity Loss subplot
-            axes[2].plot(history['sparsity_loss'], label='Sparsity Loss', color='tab:green', linewidth=line_width)
-            axes[2].set_title("Sparsity Loss", fontsize=font_size)
+            axes[2].plot(history['val_sparsity_loss'], color=val_colors[2], linewidth=line_width, marker='o', markersize=4)
+            axes[2].set_title("Sparsity Validation Loss", fontsize=title_size, fontweight='bold')
             axes[2].set_xlabel("Epoch", fontsize=font_size)
             axes[2].set_ylabel("Loss", fontsize=font_size)
-            axes[2].grid(True)
-            axes[2].tick_params(axis='both', labelsize=12)
-
+            axes[2].grid(True, alpha=0.3)
+            axes[2].tick_params(axis='both', labelsize=tick_size)
+            
             # Adjust layout and save
             plt.tight_layout(pad=3.0)
-            plt.savefig(os.path.join(plot_path, f"loss_history_epoch_{epoch+1}.png"), dpi=300)
+            plt.savefig(os.path.join(plot_path, f"validation_loss_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
             plt.close()
+        
+        # 2. Combined comparison plots (train vs validation)
+        if val_loader is not None and 'val_total_loss' in history and len(history['val_total_loss']) > 0:
+            fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+            
+            # Total Loss subplot
+            axes[0].plot(history['total_loss'], label='Training', color=train_colors[0], linewidth=line_width, marker='o', markersize=4)
+            axes[0].plot(history['val_total_loss'], label='Validation', color=val_colors[0], linewidth=line_width, marker='s', markersize=4)
+            axes[0].set_title("Total Loss Comparison", fontsize=title_size, fontweight='bold')
+            axes[0].set_xlabel("Epoch", fontsize=font_size)
+            axes[0].set_ylabel("Loss", fontsize=font_size)
+            axes[0].grid(True, alpha=0.3)
+            axes[0].legend(fontsize=legend_size)
+            axes[0].tick_params(axis='both', labelsize=tick_size)
+            
+            # DFT Loss subplot
+            axes[1].plot(history['dft_loss'], label='Training', color=train_colors[1], linewidth=line_width, marker='o', markersize=4)
+            axes[1].plot(history['val_dft_loss'], label='Validation', color=val_colors[1], linewidth=line_width, marker='s', markersize=4)
+            axes[1].set_title("DFT Loss Comparison", fontsize=title_size, fontweight='bold')
+            axes[1].set_xlabel("Epoch", fontsize=font_size)
+            axes[1].set_ylabel("Loss", fontsize=font_size)
+            axes[1].grid(True, alpha=0.3)
+            axes[1].legend(fontsize=legend_size)
+            axes[1].tick_params(axis='both', labelsize=tick_size)
+            
+            # Sparsity Loss subplot
+            axes[2].plot(history['sparsity_loss'], label='Training', color=train_colors[2], linewidth=line_width, marker='o', markersize=4)
+            axes[2].plot(history['val_sparsity_loss'], label='Validation', color=val_colors[2], linewidth=line_width, marker='s', markersize=4)
+            axes[2].set_title("Sparsity Loss Comparison", fontsize=title_size, fontweight='bold')
+            axes[2].set_xlabel("Epoch", fontsize=font_size)
+            axes[2].set_ylabel("Loss", fontsize=font_size)
+            axes[2].grid(True, alpha=0.3)
+            axes[2].legend(fontsize=legend_size)
+            axes[2].tick_params(axis='both', labelsize=tick_size)
+            
+            # Adjust layout and save
+            plt.tight_layout(pad=3.0)
+            plt.savefig(os.path.join(plot_path, f"comparison_loss_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
+            plt.close()
+        
+        # 3. One additional consolidated plot showing all losses
+        plt.figure(figsize=(12, 8))
+        
+        # Training losses
+        plt.plot(history['total_loss'], label='Total (Train)', color=train_colors[0], linewidth=line_width, marker='o', markersize=4)
+        plt.plot(history['dft_loss'], label='DFT (Train)', color=train_colors[1], linewidth=line_width, marker='o', markersize=4)
+        plt.plot(history['sparsity_loss'], label='Sparsity (Train)', color=train_colors[2], linewidth=line_width, marker='o', markersize=4)
+        
+        # Validation losses if available
+        if val_loader is not None and 'val_total_loss' in history and len(history['val_total_loss']) > 0:
+            plt.plot(history['val_total_loss'], label='Total (Val)', color=val_colors[0], linewidth=line_width, linestyle='--', marker='s', markersize=4)
+            plt.plot(history['val_dft_loss'], label='DFT (Val)', color=val_colors[1], linewidth=line_width, linestyle='--', marker='s', markersize=4)
+            plt.plot(history['val_sparsity_loss'], label='Sparsity (Val)', color=val_colors[2], linewidth=line_width, linestyle='--', marker='s', markersize=4)
+        
+        plt.title("All Loss Metrics", fontsize=title_size, fontweight='bold')
+        plt.xlabel("Epoch", fontsize=font_size)
+        plt.ylabel("Loss", fontsize=font_size)
+        plt.grid(True, alpha=0.3)
+        plt.legend(fontsize=legend_size)
+        plt.tick_params(axis='both', labelsize=tick_size)
+        
+        # Add epoch marker
+        plt.axvline(x=epoch, color='gray', linestyle='--', alpha=0.5)
+        plt.text(epoch, plt.gca().get_ylim()[1]*0.9, f'Current: Epoch {epoch+1}', 
+                fontsize=12, ha='center', va='center', 
+                bbox=dict(facecolor='white', alpha=0.7, boxstyle='round,pad=0.5'))
+        
+        plt.tight_layout()
+        plt.savefig(os.path.join(plot_path, f"all_losses_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        # Save the raw data for later plotting
+        history_file = os.path.join(plot_path, "loss_history.json")
+        with open(history_file, 'w') as f:
+            json.dump(history, f, indent=4)
 
     # Save final model
     final_model_path = os.path.join(save_path_final, f"complex_dft_unet_final.pth")
@@ -317,7 +519,7 @@ def train_complex_dft_unet(model, dataloader, device, epochs=100, start_epoch=0,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'scheduler_state_dict': scheduler.state_dict() if scheduler else None,
-        'loss': avg_loss,
+        'loss': avg_val_loss if val_loader else avg_loss,
         'history': history
     }, final_model_path)
     print(f"Final model saved to {final_model_path}")
