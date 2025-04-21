@@ -130,7 +130,7 @@ for root, dirs, files in os.walk(src_dir):
 # git reset
 # git add .
 # git commit -m "Initial backup (excluding .wav files)"
-# git remote add origin https://github.com/AAG1201/MTech_Project_Second_Part.git
+# git remote add origin https://github.com/AAG1201/Audio_Declip.git
 # git branch -M main
 # git push -u origin main
 
