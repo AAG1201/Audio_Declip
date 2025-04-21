@@ -58,7 +58,11 @@ Audio_Declip
 
 ## 📦 Dataset
 
-Place your datasets as follows:
+The dataset used for training and evaluation (including `train_data/`, `test_data/`, `pkl_data/`, and `saved_models/`) can be accessed via the following Google Drive link:
+
+👉 **[Download Dataset from Google Drive](https://drive.google.com/drive/folders/1qMC818ggFpiL7YZ8FpsZGSW3iVOSZmOu?usp=sharing)**
+
+Place the downloaded folders as follows within the project directory:
 
 ```
 Audio_Declip/
@@ -70,6 +74,7 @@ Audio_Declip/
 │   └── ...
 ├── pkl_data/
 │   └── training_data.pkl
+├── saved_models/
 ```
 
 - You can either use existing `.pkl` files or generate new ones from `.wav` files using the script below.
@@ -145,4 +150,4 @@ The declipped outputs and evaluation metrics (SNR, SDR, PESQ, etc.) will be save
 
 ## 📧 Contact
 
-For questions, open an issue or reach out at [your_email@example.com].
+For questions, open an issue or reach out at adityaag@iisc.ac.in.
