@@ -1,7 +1,7 @@
 
 # Audio Declip Project
 
-This repository provides code and tools for training and evaluating models for **audio declipping**. It supports using pre-generated datasets or generating datasets from custom `.wav` files.
+This repository provides code and tools for training and evaluating models for **audio declipping**. It supports generating datasets from custom `.wav` files.
 
 ---
 
