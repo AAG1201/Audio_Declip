@@ -355,78 +355,45 @@ def train_complex_dft_unet(model, train_loader, val_loader=None, device='cpu', e
             print(f"Checkpoint saved to {checkpoint_path}")
             
         # Plot and save loss history
-    if plot_path and (epoch + 1) % checkpoint_freq == 0:
-        os.makedirs(plot_path, exist_ok=True)
-        
-        # Set style parameters
-        plt.style.use('seaborn-v0_8-whitegrid')
-        line_width = 2.5
-        font_size = 14
-        title_size = 18
-        legend_size = 12
-        tick_size = 12
-        
-        # Create colors with better contrast
-        train_colors = ['#1f77b4', '#ff7f0e', '#2ca02c']  # Blue, Orange, Green
-        val_colors = ['#d62728', '#9467bd', '#8c564b']    # Red, Purple, Brown
-        
-        # 1. Plot training and validation separately
-        
-        # Training Loss Plots
-        fig, axes = plt.subplots(1, 3, figsize=(20, 6))
-        
-        # Total Loss subplot
-        axes[0].plot(history['total_loss'], color=train_colors[0], linewidth=line_width, marker='o', markersize=4)
-        axes[0].set_title("Total Training Loss", fontsize=title_size, fontweight='bold')
-        axes[0].set_xlabel("Epoch", fontsize=font_size)
-        axes[0].set_ylabel("Loss", fontsize=font_size)
-        axes[0].grid(True, alpha=0.3)
-        axes[0].tick_params(axis='both', labelsize=tick_size)
-        
-        # DFT Loss subplot
-        axes[1].plot(history['dft_loss'], color=train_colors[1], linewidth=line_width, marker='o', markersize=4)
-        axes[1].set_title("DFT Training Loss", fontsize=title_size, fontweight='bold')
-        axes[1].set_xlabel("Epoch", fontsize=font_size)
-        axes[1].set_ylabel("Loss", fontsize=font_size)
-        axes[1].grid(True, alpha=0.3)
-        axes[1].tick_params(axis='both', labelsize=tick_size)
-        
-        # Sparsity Loss subplot
-        axes[2].plot(history['sparsity_loss'], color=train_colors[2], linewidth=line_width, marker='o', markersize=4)
-        axes[2].set_title("Sparsity Training Loss", fontsize=title_size, fontweight='bold')
-        axes[2].set_xlabel("Epoch", fontsize=font_size)
-        axes[2].set_ylabel("Loss", fontsize=font_size)
-        axes[2].grid(True, alpha=0.3)
-        axes[2].tick_params(axis='both', labelsize=tick_size)
-        
-        # Adjust layout and save
-        plt.tight_layout(pad=3.0)
-        plt.savefig(os.path.join(plot_path, f"training_loss_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        # Validation Loss Plots (if available)
-        if val_loader is not None and 'val_total_loss' in history and len(history['val_total_loss']) > 0:
+        if plot_path and (epoch + 1) % checkpoint_freq == 0:
+            os.makedirs(plot_path, exist_ok=True)
+            
+            # Set style parameters
+            plt.style.use('seaborn-v0_8-whitegrid')
+            line_width = 2.5
+            font_size = 14
+            title_size = 18
+            legend_size = 12
+            tick_size = 12
+            
+            # Create colors with better contrast
+            train_colors = ['#1f77b4', '#ff7f0e', '#2ca02c']  # Blue, Orange, Green
+            val_colors = ['#d62728', '#9467bd', '#8c564b']    # Red, Purple, Brown
+            
+            # 1. Plot training and validation separately
+            
+            # Training Loss Plots
             fig, axes = plt.subplots(1, 3, figsize=(20, 6))
             
             # Total Loss subplot
-            axes[0].plot(history['val_total_loss'], color=val_colors[0], linewidth=line_width, marker='o', markersize=4)
-            axes[0].set_title("Total Validation Loss", fontsize=title_size, fontweight='bold')
+            axes[0].plot(history['total_loss'], color=train_colors[0], linewidth=line_width, marker='o', markersize=4)
+            axes[0].set_title("Total Training Loss", fontsize=title_size, fontweight='bold')
             axes[0].set_xlabel("Epoch", fontsize=font_size)
             axes[0].set_ylabel("Loss", fontsize=font_size)
             axes[0].grid(True, alpha=0.3)
             axes[0].tick_params(axis='both', labelsize=tick_size)
             
             # DFT Loss subplot
-            axes[1].plot(history['val_dft_loss'], color=val_colors[1], linewidth=line_width, marker='o', markersize=4)
-            axes[1].set_title("DFT Validation Loss", fontsize=title_size, fontweight='bold')
+            axes[1].plot(history['dft_loss'], color=train_colors[1], linewidth=line_width, marker='o', markersize=4)
+            axes[1].set_title("DFT Training Loss", fontsize=title_size, fontweight='bold')
             axes[1].set_xlabel("Epoch", fontsize=font_size)
             axes[1].set_ylabel("Loss", fontsize=font_size)
             axes[1].grid(True, alpha=0.3)
             axes[1].tick_params(axis='both', labelsize=tick_size)
             
             # Sparsity Loss subplot
-            axes[2].plot(history['val_sparsity_loss'], color=val_colors[2], linewidth=line_width, marker='o', markersize=4)
-            axes[2].set_title("Sparsity Validation Loss", fontsize=title_size, fontweight='bold')
+            axes[2].plot(history['sparsity_loss'], color=train_colors[2], linewidth=line_width, marker='o', markersize=4)
+            axes[2].set_title("Sparsity Training Loss", fontsize=title_size, fontweight='bold')
             axes[2].set_xlabel("Epoch", fontsize=font_size)
             axes[2].set_ylabel("Loss", fontsize=font_size)
             axes[2].grid(True, alpha=0.3)
@@ -434,83 +401,116 @@ def train_complex_dft_unet(model, train_loader, val_loader=None, device='cpu', e
             
             # Adjust layout and save
             plt.tight_layout(pad=3.0)
-            plt.savefig(os.path.join(plot_path, f"validation_loss_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
+            plt.savefig(os.path.join(plot_path, f"training_loss_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
             plt.close()
-        
-        # 2. Combined comparison plots (train vs validation)
-        if val_loader is not None and 'val_total_loss' in history and len(history['val_total_loss']) > 0:
-            fig, axes = plt.subplots(1, 3, figsize=(20, 6))
             
-            # Total Loss subplot
-            axes[0].plot(history['total_loss'], label='Training', color=train_colors[0], linewidth=line_width, marker='o', markersize=4)
-            axes[0].plot(history['val_total_loss'], label='Validation', color=val_colors[0], linewidth=line_width, marker='s', markersize=4)
-            axes[0].set_title("Total Loss Comparison", fontsize=title_size, fontweight='bold')
-            axes[0].set_xlabel("Epoch", fontsize=font_size)
-            axes[0].set_ylabel("Loss", fontsize=font_size)
-            axes[0].grid(True, alpha=0.3)
-            axes[0].legend(fontsize=legend_size)
-            axes[0].tick_params(axis='both', labelsize=tick_size)
+            # Validation Loss Plots (if available)
+            if val_loader is not None and 'val_total_loss' in history and len(history['val_total_loss']) > 0:
+                fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+                
+                # Total Loss subplot
+                axes[0].plot(history['val_total_loss'], color=val_colors[0], linewidth=line_width, marker='o', markersize=4)
+                axes[0].set_title("Total Validation Loss", fontsize=title_size, fontweight='bold')
+                axes[0].set_xlabel("Epoch", fontsize=font_size)
+                axes[0].set_ylabel("Loss", fontsize=font_size)
+                axes[0].grid(True, alpha=0.3)
+                axes[0].tick_params(axis='both', labelsize=tick_size)
+                
+                # DFT Loss subplot
+                axes[1].plot(history['val_dft_loss'], color=val_colors[1], linewidth=line_width, marker='o', markersize=4)
+                axes[1].set_title("DFT Validation Loss", fontsize=title_size, fontweight='bold')
+                axes[1].set_xlabel("Epoch", fontsize=font_size)
+                axes[1].set_ylabel("Loss", fontsize=font_size)
+                axes[1].grid(True, alpha=0.3)
+                axes[1].tick_params(axis='both', labelsize=tick_size)
+                
+                # Sparsity Loss subplot
+                axes[2].plot(history['val_sparsity_loss'], color=val_colors[2], linewidth=line_width, marker='o', markersize=4)
+                axes[2].set_title("Sparsity Validation Loss", fontsize=title_size, fontweight='bold')
+                axes[2].set_xlabel("Epoch", fontsize=font_size)
+                axes[2].set_ylabel("Loss", fontsize=font_size)
+                axes[2].grid(True, alpha=0.3)
+                axes[2].tick_params(axis='both', labelsize=tick_size)
+                
+                # Adjust layout and save
+                plt.tight_layout(pad=3.0)
+                plt.savefig(os.path.join(plot_path, f"validation_loss_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
+                plt.close()
             
-            # DFT Loss subplot
-            axes[1].plot(history['dft_loss'], label='Training', color=train_colors[1], linewidth=line_width, marker='o', markersize=4)
-            axes[1].plot(history['val_dft_loss'], label='Validation', color=val_colors[1], linewidth=line_width, marker='s', markersize=4)
-            axes[1].set_title("DFT Loss Comparison", fontsize=title_size, fontweight='bold')
-            axes[1].set_xlabel("Epoch", fontsize=font_size)
-            axes[1].set_ylabel("Loss", fontsize=font_size)
-            axes[1].grid(True, alpha=0.3)
-            axes[1].legend(fontsize=legend_size)
-            axes[1].tick_params(axis='both', labelsize=tick_size)
+            # 2. Combined comparison plots (train vs validation)
+            if val_loader is not None and 'val_total_loss' in history and len(history['val_total_loss']) > 0:
+                fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+                
+                # Total Loss subplot
+                axes[0].plot(history['total_loss'], label='Training', color=train_colors[0], linewidth=line_width, marker='o', markersize=4)
+                axes[0].plot(history['val_total_loss'], label='Validation', color=val_colors[0], linewidth=line_width, marker='s', markersize=4)
+                axes[0].set_title("Total Loss Comparison", fontsize=title_size, fontweight='bold')
+                axes[0].set_xlabel("Epoch", fontsize=font_size)
+                axes[0].set_ylabel("Loss", fontsize=font_size)
+                axes[0].grid(True, alpha=0.3)
+                axes[0].legend(fontsize=legend_size)
+                axes[0].tick_params(axis='both', labelsize=tick_size)
+                
+                # DFT Loss subplot
+                axes[1].plot(history['dft_loss'], label='Training', color=train_colors[1], linewidth=line_width, marker='o', markersize=4)
+                axes[1].plot(history['val_dft_loss'], label='Validation', color=val_colors[1], linewidth=line_width, marker='s', markersize=4)
+                axes[1].set_title("DFT Loss Comparison", fontsize=title_size, fontweight='bold')
+                axes[1].set_xlabel("Epoch", fontsize=font_size)
+                axes[1].set_ylabel("Loss", fontsize=font_size)
+                axes[1].grid(True, alpha=0.3)
+                axes[1].legend(fontsize=legend_size)
+                axes[1].tick_params(axis='both', labelsize=tick_size)
+                
+                # Sparsity Loss subplot
+                axes[2].plot(history['sparsity_loss'], label='Training', color=train_colors[2], linewidth=line_width, marker='o', markersize=4)
+                axes[2].plot(history['val_sparsity_loss'], label='Validation', color=val_colors[2], linewidth=line_width, marker='s', markersize=4)
+                axes[2].set_title("Sparsity Loss Comparison", fontsize=title_size, fontweight='bold')
+                axes[2].set_xlabel("Epoch", fontsize=font_size)
+                axes[2].set_ylabel("Loss", fontsize=font_size)
+                axes[2].grid(True, alpha=0.3)
+                axes[2].legend(fontsize=legend_size)
+                axes[2].tick_params(axis='both', labelsize=tick_size)
+                
+                # Adjust layout and save
+                plt.tight_layout(pad=3.0)
+                plt.savefig(os.path.join(plot_path, f"comparison_loss_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
+                plt.close()
             
-            # Sparsity Loss subplot
-            axes[2].plot(history['sparsity_loss'], label='Training', color=train_colors[2], linewidth=line_width, marker='o', markersize=4)
-            axes[2].plot(history['val_sparsity_loss'], label='Validation', color=val_colors[2], linewidth=line_width, marker='s', markersize=4)
-            axes[2].set_title("Sparsity Loss Comparison", fontsize=title_size, fontweight='bold')
-            axes[2].set_xlabel("Epoch", fontsize=font_size)
-            axes[2].set_ylabel("Loss", fontsize=font_size)
-            axes[2].grid(True, alpha=0.3)
-            axes[2].legend(fontsize=legend_size)
-            axes[2].tick_params(axis='both', labelsize=tick_size)
+            # 3. One additional consolidated plot showing all losses
+            plt.figure(figsize=(12, 8))
             
-            # Adjust layout and save
-            plt.tight_layout(pad=3.0)
-            plt.savefig(os.path.join(plot_path, f"comparison_loss_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
+            # Training losses
+            plt.plot(history['total_loss'], label='Total (Train)', color=train_colors[0], linewidth=line_width, marker='o', markersize=4)
+            plt.plot(history['dft_loss'], label='DFT (Train)', color=train_colors[1], linewidth=line_width, marker='o', markersize=4)
+            plt.plot(history['sparsity_loss'], label='Sparsity (Train)', color=train_colors[2], linewidth=line_width, marker='o', markersize=4)
+            
+            # Validation losses if available
+            if val_loader is not None and 'val_total_loss' in history and len(history['val_total_loss']) > 0:
+                plt.plot(history['val_total_loss'], label='Total (Val)', color=val_colors[0], linewidth=line_width, linestyle='--', marker='s', markersize=4)
+                plt.plot(history['val_dft_loss'], label='DFT (Val)', color=val_colors[1], linewidth=line_width, linestyle='--', marker='s', markersize=4)
+                plt.plot(history['val_sparsity_loss'], label='Sparsity (Val)', color=val_colors[2], linewidth=line_width, linestyle='--', marker='s', markersize=4)
+            
+            plt.title("All Loss Metrics", fontsize=title_size, fontweight='bold')
+            plt.xlabel("Epoch", fontsize=font_size)
+            plt.ylabel("Loss", fontsize=font_size)
+            plt.grid(True, alpha=0.3)
+            plt.legend(fontsize=legend_size)
+            plt.tick_params(axis='both', labelsize=tick_size)
+            
+            # Add epoch marker
+            plt.axvline(x=epoch, color='gray', linestyle='--', alpha=0.5)
+            plt.text(epoch, plt.gca().get_ylim()[1]*0.9, f'Current: Epoch {epoch+1}', 
+                    fontsize=12, ha='center', va='center', 
+                    bbox=dict(facecolor='white', alpha=0.7, boxstyle='round,pad=0.5'))
+            
+            plt.tight_layout()
+            plt.savefig(os.path.join(plot_path, f"all_losses_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
             plt.close()
-        
-        # 3. One additional consolidated plot showing all losses
-        plt.figure(figsize=(12, 8))
-        
-        # Training losses
-        plt.plot(history['total_loss'], label='Total (Train)', color=train_colors[0], linewidth=line_width, marker='o', markersize=4)
-        plt.plot(history['dft_loss'], label='DFT (Train)', color=train_colors[1], linewidth=line_width, marker='o', markersize=4)
-        plt.plot(history['sparsity_loss'], label='Sparsity (Train)', color=train_colors[2], linewidth=line_width, marker='o', markersize=4)
-        
-        # Validation losses if available
-        if val_loader is not None and 'val_total_loss' in history and len(history['val_total_loss']) > 0:
-            plt.plot(history['val_total_loss'], label='Total (Val)', color=val_colors[0], linewidth=line_width, linestyle='--', marker='s', markersize=4)
-            plt.plot(history['val_dft_loss'], label='DFT (Val)', color=val_colors[1], linewidth=line_width, linestyle='--', marker='s', markersize=4)
-            plt.plot(history['val_sparsity_loss'], label='Sparsity (Val)', color=val_colors[2], linewidth=line_width, linestyle='--', marker='s', markersize=4)
-        
-        plt.title("All Loss Metrics", fontsize=title_size, fontweight='bold')
-        plt.xlabel("Epoch", fontsize=font_size)
-        plt.ylabel("Loss", fontsize=font_size)
-        plt.grid(True, alpha=0.3)
-        plt.legend(fontsize=legend_size)
-        plt.tick_params(axis='both', labelsize=tick_size)
-        
-        # Add epoch marker
-        plt.axvline(x=epoch, color='gray', linestyle='--', alpha=0.5)
-        plt.text(epoch, plt.gca().get_ylim()[1]*0.9, f'Current: Epoch {epoch+1}', 
-                fontsize=12, ha='center', va='center', 
-                bbox=dict(facecolor='white', alpha=0.7, boxstyle='round,pad=0.5'))
-        
-        plt.tight_layout()
-        plt.savefig(os.path.join(plot_path, f"all_losses_epoch_{epoch+1}.png"), dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        # Save the raw data for later plotting
-        history_file = os.path.join(plot_path, "loss_history.json")
-        with open(history_file, 'w') as f:
-            json.dump(history, f, indent=4)
+            
+            # Save the raw data for later plotting
+            history_file = os.path.join(plot_path, "loss_history.json")
+            with open(history_file, 'w') as f:
+                json.dump(history, f, indent=4)
 
     # Save final model
     final_model_path = os.path.join(save_path_final, f"complex_dft_unet_final.pth")
