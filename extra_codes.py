@@ -179,3 +179,4 @@ visualize_frequency_attention(loaded_model, train_loader)
 # To upload data to matlab
 
 # gdown --folder https://drive.google.com/drive/folders/1Zuc2mpSK9NSEpuEcMvK1hK-wCa7G0hyn
+# rsync -avP wtc3@10.64.26.95:/data2/AAG/Audio_Declip/pkl_data/ /mnt/HDD_8TB/AAG/Audio_Declip/pkl_data
