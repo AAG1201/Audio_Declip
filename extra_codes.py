@@ -178,4 +178,4 @@ visualize_frequency_attention(loaded_model, train_loader)
 
 # To upload data to matlab
 
-# nohup rclone copy /data/AAG/MTech_Project_Final/saved_models gdrive: --drive-root-folder-id 1qMC818ggFpiL7YZ8FpsZGSW3iVOSZmOu --progress
+# gdown --folder https://drive.google.com/drive/folders/1Zuc2mpSK9NSEpuEcMvK1hK-wCa7G0hyn
