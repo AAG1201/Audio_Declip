@@ -186,3 +186,13 @@ visualize_frequency_attention(loaded_model, train_loader)
 
 # ssh-keygen -t ed25519 -C "adityaag@iisc.ac.in" -f ~/.ssh/github_AAG
 # ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKw4LdjgoKXQzLic74mTzhh91R0+5ayuKQ17L1YQtqyN adityaag@iisc.ac.in
+# rsync -avP wtc3@10.64.26.95:/data2/AAG/Audio_Declip/pkl_data/ /mnt/HDD_8TB/AAG/Audio_Declip/pkl_data
+
+# To upload data to matlab
+
+# nohup rclone copy /data/AAG/MTech_Project_Final/saved_models gdrive: --drive-root-folder-id 1qMC818ggFpiL7YZ8FpsZGSW3iVOSZmOu --progress
+
+# gdown --folder https://drive.google.com/drive/folders/1Zuc2mpSK9NSEpuEcMvK1hK-wCa7G0hyn
+
+
+# CUDA_VISIBLE_DEVICES=3 nohup python training.py --pkl_path pkl_data/training_data.pkl --epochs 500 --batch_size 2048 --save_path saved_models --plot_path loss_plots --checkpoint_freq 50 --val_split 0.1 --resume --val > training_log.txt 2>&1 &
