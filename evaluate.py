@@ -3,7 +3,6 @@ import numpy as np
 import os
 from tqdm import tqdm
 import soundfile as sf
-from time import time
 from scipy.signal import resample
 from spade_segmentation import spade_segmentation
 import pandas as pd
@@ -96,13 +95,11 @@ def evaluate_model(test_audio_dir: str,
                         clip_sdr_modified(resampled_data, clipping_threshold)
 
                     # Perform reconstruction
-                    start_time = time()
-                    reconstructed_signal, cycles = spade_segmentation(
+                   
+                    reconstructed_signal, cycles, processing_time = spade_segmentation(
                         clipped_signal, resampled_data, Ls, win_len, win_shift,
                         ps_maxit, ps_epsilon, ps_r, ps_s, F_red, masks, dynamic, model_path,
                         train_gen_mode,  eval_mode, factor)
-
-                    processing_time = time() - start_time
 
                     # Resample back to target_fs (not original fs)
                     reconstructed_signal = resample(reconstructed_signal, int(fs * tc))
