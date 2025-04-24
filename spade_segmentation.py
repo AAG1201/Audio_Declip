@@ -9,7 +9,6 @@ from aspade import aspade
 from dynamic_aspade import dynamic_aspade
 from pipeline import ComplexDFTUNet, load_model
 from ml_aspade import ml_aspade
-from time import time
 
 
 
@@ -110,10 +109,6 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
   # Main loop
   # for n in tqdm(range(N), desc="Processing", unit="iteration", position=1, leave=False):
   # for n in range(N):
-
-  
-  start_time = time()
-
   for n in tqdm.tqdm(range(N), desc="Processing", unit="iteration", position=0, leave=True):
     # multiplying signal block with windows and choosing corresponding masks
     idx = np.mod(n * win_shift + idxrange, L)
