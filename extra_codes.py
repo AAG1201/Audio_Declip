@@ -185,7 +185,8 @@ visualize_frequency_attention(loaded_model, train_loader)
 #  github
 
 # ssh-keygen -t ed25519 -C "adityaag@iisc.ac.in" -f ~/.ssh/github_AAG
-# ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKw4LdjgoKXQzLic74mTzhh91R0+5ayuKQ17L1YQtqyN adityaag@iisc.ac.in
+# cat ~/.ssh/github_AAG.pub
+
 # rsync -avP wtc3@10.64.26.95:/data2/AAG/Audio_Declip/pkl_data/ /mnt/HDD_8TB/AAG/Audio_Declip/pkl_data
 
 # To upload data to matlab
