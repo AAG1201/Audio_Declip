@@ -141,7 +141,7 @@ for root, dirs, files in os.walk(src_dir):
 
 # nohup python training.py > training_log.txt 2>&1 &
 
-# nohup python training.py --pkl_path pkl_data/training_data.pkl --epochs 100 --batch_size 1024 --save_path saved_models --plot_path loss_plots --checkpoint_freq 10 --resume > training_log.txt 2>&1 &
+# nohup python training.py --pkl_path pkl_data/training_data.pkl --epochs 500 --batch_size 128 --save_path saved_models --plot_path loss_plots --checkpoint_freq 50 --resume > training_log.txt 2>&1 &
 
 ###############################################################################################################################
 
@@ -197,3 +197,6 @@ visualize_frequency_attention(loaded_model, train_loader)
 
 
 # CUDA_VISIBLE_DEVICES=3 nohup python training.py --pkl_path pkl_data/training_data.pkl --epochs 500 --batch_size 2048 --save_path saved_models --plot_path loss_plots --checkpoint_freq 50 --val_split 0.1 --resume --val > training_log.txt 2>&1 &
+
+
+#  nohup python training.py --pkl_path pkl_data/training_data.pkl --epochs 500 --batch_size 128 --save_path saved_models --plot_path loss_plots --checkpoint_freq 50 --val_split 0.1 --resume --val > training_log.txt 2>&1 &

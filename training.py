@@ -10,6 +10,8 @@ from pipeline import (
     train_complex_dft_unet,
     prepare_training_data_with_masks
 )
+# from pipeline_mod import train_mag_phase_dft_unet
+
 import sys
 sys.stdout.reconfigure(line_buffering=True)
 
@@ -136,6 +138,25 @@ def main(args):
         checkpoint_freq=args.checkpoint_freq,
         lr=args.learning_rate
     )
+
+    # # Train
+    # loss_history = train_mag_phase_dft_unet(
+    #     model,
+    #     train_loader,
+    #     val_loader=val_loader,
+    #     device=device,
+    #     epochs=args.epochs,
+    #     start_epoch=start_epoch,
+    #     optimizer=optimizer,
+    #     scheduler=None,
+    #     history=None,
+    #     best_loss=best_loss,
+    #     save_path=args.save_path,
+    #     plot_path=args.plot_path,
+    #     checkpoint_freq=args.checkpoint_freq,
+    #     lr=args.learning_rate
+    # )
+
     
     # Save the loss history to a separate JSON file for easy plotting later
     history_path = os.path.join(args.save_path, "loss_history.json")

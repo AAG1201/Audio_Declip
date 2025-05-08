@@ -18,6 +18,7 @@ def ml_aspade(data_clipped: np.ndarray,
                    device,
                    train_gen_mode: int,
                    eval_mode: int,
+                   restrict_mode: int,
                    factor: float) -> Tuple[np.ndarray, dict]:
 
     max_it = int(max_it)
@@ -48,6 +49,15 @@ def ml_aspade(data_clipped: np.ndarray,
         imag = zEst[500:]
         zEst = real + 1j * imag  # 👈 no .numpy() needed
 
+        if restrict_mode:
+            z_bar = hard_thresholding(zEst, int(k))
+            syn = frsyn(z_bar, redundancy)
+            syn = syn[:Ls]
+            x_hat = proj_time(syn, masks, data_clipped)
+            
+            return x_hat, cnt
+
+
         k = int(factor*k)
 
 
@@ -58,8 +68,6 @@ def ml_aspade(data_clipped: np.ndarray,
     obj_his = np.zeros((3,1))   # Store last 3 objective values
     imp_thres = 1e-4    # Minimum improvement threshold
     max_sparsity = int(len(zEst) * 0.5)  # Maximum sparsity limit (50% of coefficients)
-
-
 
 
     while cnt <= max_it:

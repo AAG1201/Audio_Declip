@@ -22,7 +22,10 @@ def evaluate_model(test_audio_dir: str,
                    train_gen_mode: int,
                    eval_mode: int,
                    dynamic: int,
-                   save: int) -> Dict:
+                   delta: int,
+                   save: int,
+                   custom_win: int,
+                   restrict_mode: int) -> Dict:
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -67,6 +70,8 @@ def evaluate_model(test_audio_dir: str,
                     if len(data.shape) > 1:
                         data = data[:, 0]  # Convert stereo to mono
 
+                    data = data[delta : delta + (fs * tc)] 
+
                     # Clip to desired duration and normalize
                     max_samples = min(len(data), fs * tc)
                     data = data[:max_samples]
@@ -78,8 +83,10 @@ def evaluate_model(test_audio_dir: str,
 
                     # Setup parameters
                     Ls = len(resampled_data)
-                    win_len = np.floor(Ls / 32)
-                    win_shift = np.floor(win_len / 4)
+                    # win_len = np.floor(Ls / 32)
+                    # win_shift = np.floor(win_len / 4)
+                    win_len = custom_win
+                    win_shift = 125
                     F_red = 1
 
                     # ASPADE parameters
@@ -94,13 +101,11 @@ def evaluate_model(test_audio_dir: str,
                         clip_sdr_modified(resampled_data, clipping_threshold)
 
                     # Perform reconstruction
-                    start_time = time()
-                    reconstructed_signal, cycles = spade_segmentation(
+                    reconstructed_signal, cycles, processing_time = spade_segmentation(
                         clipped_signal, resampled_data, Ls, win_len, win_shift,
                         ps_maxit, ps_epsilon, ps_r, ps_s, F_red, masks, dynamic, model_path,
-                        train_gen_mode,  eval_mode, factor)
+                        train_gen_mode,  eval_mode, restrict_mode, factor)
 
-                    processing_time = time() - start_time
 
                     # Resample back to target_fs (not original fs)
                     reconstructed_signal = resample(reconstructed_signal, int(fs * tc))
@@ -110,6 +115,20 @@ def evaluate_model(test_audio_dir: str,
                     clipped_signal = clipped_signal / max(np.abs(clipped_signal))         # normalization
                     reconstructed_signal = reconstructed_signal / max(np.abs(reconstructed_signal))         # normalization
 
+                    if save:
+                        # Save reconstructed audio
+                        dir_name = f"fs_{fs}_threshold_{clipping_threshold:.2f}"
+                        full_dir_path = os.path.join(output_dir, dir_name)
+                        os.makedirs(full_dir_path, exist_ok=True)
+                        output_path = os.path.join(full_dir_path, f"reconstructed_{audio_file}")
+                        sf.write(output_path, reconstructed_signal, fs)
+                        # Save clipped signal
+                        output_path_clipped = os.path.join(full_dir_path, f"clipped_{audio_file}")
+                        sf.write(output_path_clipped, clipped_signal, fs)
+
+                        # Save original signal (data)
+                        output_path_original = os.path.join(full_dir_path, f"original_{audio_file}")
+                        sf.write(output_path_original, data, fs)
 
 
                     pesq_i = pesq(16000, data, clipped_signal, 'wb')
@@ -120,13 +139,7 @@ def evaluate_model(test_audio_dir: str,
                     sdr_rec = sdr(data, reconstructed_signal)
                     sdr_imp = sdr_rec - sdr_clip
 
-                    if save:
-                        # Save reconstructed audio
-                        dir_name = f"fs_{fs}_threshold_{clipping_threshold:.2f}"
-                        full_dir_path = os.path.join(output_dir, dir_name)
-                        os.makedirs(full_dir_path, exist_ok=True)
-                        output_path = os.path.join(full_dir_path, f"reconstructed_{audio_file}")
-                        sf.write(output_path, reconstructed_signal, fs)
+                    
 
                     # Store results
                     results['file'].append(audio_file)
@@ -148,8 +161,24 @@ def evaluate_model(test_audio_dir: str,
     # Convert results to DataFrame and save
     results_df = pd.DataFrame(results)
 
-    # Save Excel file for verification
-    results_excel_path = os.path.join(output_dir, 'evaluation_results.xlsx')
+    # Determine configuration type
+    if eval_mode == 1 and dynamic == 0:
+        config_type = 'ml_model'
+    elif eval_mode == 0 and dynamic == 1:
+        config_type = 'dynamic_model'
+    elif eval_mode == 0 and dynamic == 0:
+        config_type = 'baseline_model'
+    else:
+        config_type = 'unknown_config'
+
+    # Format clipping thresholds into a string
+    clip_str = '_'.join([str(th) for th in clipping_thresholds])
+
+    # Construct filename
+    filename = f"evaluation_results_{config_type}.xlsx"
+    results_excel_path = os.path.join(output_dir, filename)
+
+    # Save Excel file
     results_df.to_excel(results_excel_path, index=False)
 
 
@@ -169,7 +198,10 @@ def main(args):
         train_gen_mode=args.train_gen_mode,
         eval_mode=args.eval_mode,
         dynamic=args.dynamic,
-        save=args.save
+        delta=args.delta,
+        save=args.save,
+        custom_win=args.c_win,
+        restrict_mode=args.r_mode
     )
 
 
@@ -198,6 +230,12 @@ if __name__ == "__main__":
                         help="Evaluation using Baseline/Dynamic ASPADE")
     parser.add_argument("--save", type=int, default=0,
                         help="Save reconstructed sounds")
+    parser.add_argument("--delta", type=int, default=0, 
+                        required=False, help="Starting point in audio")
+    parser.add_argument("--c_win", type=int, default=500, 
+                        required=False, help="custom window length")
+    parser.add_argument("--r_mode", type=int, default=0,
+                        help="Evaluation using ML ASPADE restricted")
 
     args = parser.parse_args()
     main(args)

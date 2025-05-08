@@ -9,10 +9,11 @@ from aspade import aspade
 from dynamic_aspade import dynamic_aspade
 from pipeline import ComplexDFTUNet, load_model
 from ml_aspade import ml_aspade
+from time import time
 
 
 
-def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, maxit, epsilon, r, s, F_red, masks, dynamic, model_path, train_gen_mode, eval_mode, factor):
+def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, maxit, epsilon, r, s, F_red, masks, dynamic, model_path, train_gen_mode, eval_mode, restrict_mode, factor):
   
   """
   Performs signal reconstruction using the SPADE (Sparse Adaptive Declipping Estimator) algorithm.
@@ -109,6 +110,9 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
   # Main loop
   # for n in tqdm(range(N), desc="Processing", unit="iteration", position=1, leave=False):
   # for n in range(N):
+
+  start_time = time()
+
   for n in tqdm.tqdm(range(N), desc="Processing", unit="iteration", position=0, leave=True):
     # multiplying signal block with windows and choosing corresponding masks
     idx = np.mod(n * win_shift + idxrange, L)
@@ -125,7 +129,7 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
 
     # perform SPADE
     if eval_mode:
-      data_rec_block, cycles = ml_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s, F_red, loaded_model, device, train_gen_mode, eval_mode, factor)
+      data_rec_block, cycles = ml_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s, F_red, loaded_model, device, train_gen_mode, eval_mode, restrict_mode, factor)
     
     elif train_gen_mode:     
       data_rec_block, metrics, cycles = ml_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s, F_red ,None, None, train_gen_mode, eval_mode, None)
