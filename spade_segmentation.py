@@ -156,4 +156,4 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
   if train_gen_mode:
     return data_rec_fin, metrics, training_data, cycles
   else:
-    return data_rec_fin, tot_cycles, processing_time
+    return data_rec_fin, tot_cycles, N, processing_time
