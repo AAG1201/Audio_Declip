@@ -3,9 +3,11 @@ import numpy as np
 from toolbox.fra import frana,frsyn
 from toolbox.hard_thresholding import hard_thresholding
 from toolbox.proj_time import proj_time
+from time import time
 
 def aspade(data_clipped,  masks, Ls, max_it, epsilon, r, s, redundancy):
 
+    
     # initialization of variables
     max_it=int(max_it)
     x_hat = np.copy(data_clipped)
@@ -18,6 +20,8 @@ def aspade(data_clipped,  masks, Ls, max_it, epsilon, r, s, redundancy):
 
     sdr_iter = np.full((max_it, 1), np.nan)
     obj_iter = np.full((max_it, 1), np.nan)
+
+    start_time = time()
 
     while cnt <= max_it:
         
@@ -48,5 +52,6 @@ def aspade(data_clipped,  masks, Ls, max_it, epsilon, r, s, redundancy):
         if cnt % r == 0:
             k += s
         
+    processing_time = time() - start_time
 
-    return x_hat, cnt
+    return x_hat, cnt, processing_time

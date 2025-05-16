@@ -92,35 +92,52 @@ class Up(nn.Module):
 class ComplexDFTUNet(nn.Module):
     """
     U-Net architecture for complex DFT processing with frequency-aware attention.
+    
+    Parameters:
+    -----------
+    dft_size : int, default=1000
+        Size of the DFT data (complex values)
+    mask_size : int, default=500
+        Size of the masks - can be different from dft_size
+    mask_channels : int, default=3
+        Number of mask channels
+    max_sparsity : int, default=500
+        Maximum value for sparsity prediction
     """
-    def __init__(self, dft_size=500, mask_channels=3, max_sparsity=250):
+    def __init__(self, dft_size, mask_size, mask_channels, max_sparsity):
         super(ComplexDFTUNet, self).__init__()
         self.dft_size = dft_size
+        self.mask_size = mask_size
         self.max_sparsity = max_sparsity
-        
-        # Input processing for complex data and masks
-        # Input: [batch, 1000] real + imaginary values & [batch, 3, 500] masks
-        # Reshape to [batch, 5, 500]: 2 channels (real, imag) + 3 mask channels
         
         # Feature dimensions
         features = 32
         
+        # For asymmetric case (dft_size=1000, mask_size=500):
+        # We'll need to handle masks separately
+        
+        # Complex data processing branch
+        self.complex_conv = nn.Conv1d(2, features // 2, kernel_size=3, padding=1)
+        
+        # Mask processing branch - handle size mismatch
+        self.mask_conv = nn.Conv1d(mask_channels, features // 2, kernel_size=3, padding=1)
+        
         # Encoder path
-        self.inc = DoubleConv(2 + mask_channels, features)  # 5 -> 32
-        self.down1 = Down(features, features * 2)          # 32 -> 64
-        self.down2 = Down(features * 2, features * 4)      # 64 -> 128
-        self.down3 = Down(features * 4, features * 8)      # 128 -> 256
+        self.inc = DoubleConv(features, features)  # features -> features
+        self.down1 = Down(features, features * 2)  # features -> features*2
+        self.down2 = Down(features * 2, features * 4)  # features*2 -> features*4
+        self.down3 = Down(features * 4, features * 8)  # features*4 -> features*8
         
         # Middle frequency-aware attention
         self.mid_attention = FrequencyAwareAttention(features * 8)
         
         # Decoder path
-        self.up1 = Up(features * 8, features * 4)         # 256 -> 128
-        self.up2 = Up(features * 4, features * 2)         # 128 -> 64
-        self.up3 = Up(features * 2, features)             # 64 -> 32
+        self.up1 = Up(features * 8, features * 4)  # features*8 -> features*4
+        self.up2 = Up(features * 4, features * 2)  # features*4 -> features*2
+        self.up3 = Up(features * 2, features)  # features*2 -> features
         
         # Output layers
-        self.out_conv = nn.Conv1d(features, 2, kernel_size=1)  # 32 -> 2 (real, imag)
+        self.out_conv = nn.Conv1d(features, 2, kernel_size=1)  # features -> 2 (real, imag)
         
         # Sparsity prediction head
         self.sparsity_head = nn.Sequential(
@@ -132,30 +149,51 @@ class ComplexDFTUNet(nn.Module):
         )
         
     def forward(self, x, masks):
-        # Reshape input complex data: [batch, 1000] -> [batch, 2, 500]
+        # For dft_size=1000 and mask_size=500:
+        # Input x is [batch, 2000] (1000 real + 1000 imag values flattened)
+        # Reshape to [batch, 2, 1000]
         batch_size = x.size(0)
-        x_reshaped = x.view(batch_size, 2, self.dft_size)
+        x_real = x[:, :self.dft_size].view(batch_size, 1, self.dft_size)
+        x_imag = x[:, self.dft_size:].view(batch_size, 1, self.dft_size)
+        x_complex = torch.cat([x_real, x_imag], dim=1)  # [batch, 2, 1000]
         
-        # Concat input and masks: [batch, 2, 500] + [batch, 3, 500] -> [batch, 5, 500]
-        x = torch.cat([x_reshaped, masks], dim=1)
+        # Process complex data branch
+        x_complex_features = self.complex_conv(x_complex)  # [batch, features//2, 1000]
+        
+        # Handle masks separately - masks are [batch, 3, 500]
+        # First, process the masks through their own convolutional layer
+        mask_features = self.mask_conv(masks)  # [batch, features//2, 500]
+        
+        # Now we need to upsample mask features to match dft_size
+        if self.mask_size != self.dft_size:
+            mask_features = F.interpolate(
+                mask_features, 
+                size=self.dft_size,
+                mode='linear', 
+                align_corners=False
+            )  # [batch, features//2, 1000]
+        
+        # Concatenate the complex features and mask features along channel dimension
+        x = torch.cat([x_complex_features, mask_features], dim=1)  # [batch, features, 1000]
         
         # Encoder path
-        x1 = self.inc(x)          # [batch, 32, 500]
-        x2 = self.down1(x1)       # [batch, 64, 250]
-        x3 = self.down2(x2)       # [batch, 128, 125]
-        x4 = self.down3(x3)       # [batch, 256, 62]
+        x1 = self.inc(x)          # [batch, features, 1000]
+        x2 = self.down1(x1)       # [batch, features*2, 500]
+        x3 = self.down2(x2)       # [batch, features*4, 250]
+        x4 = self.down3(x3)       # [batch, features*8, 125]
         
         # Middle attention
         x4 = self.mid_attention(x4)
         
         # Decoder path with skip connections
-        x = self.up1(x4, x3)      # [batch, 128, 125]
-        x = self.up2(x, x2)       # [batch, 64, 250]
-        x = self.up3(x, x1)       # [batch, 32, 500]
+        x = self.up1(x4, x3)      # [batch, features*4, 250]
+        x = self.up2(x, x2)       # [batch, features*2, 500]
+        x = self.up3(x, x1)       # [batch, features, 1000]
         
         # Output processing
-        dft_out = self.out_conv(x)  # [batch, 2, 500]
-        dft_out = dft_out.reshape(batch_size, -1)  # [batch, 1000]
+        dft_out = self.out_conv(x)  # [batch, 2, 1000]
+        # Reshape to [batch, 2000] - 1000 real followed by 1000 imaginary
+        dft_out = dft_out.reshape(batch_size, -1)  # [batch, 2000]
         
         # Sparsity prediction
         sparsity = self.sparsity_head(x)  # [batch, 1]
@@ -167,7 +205,7 @@ class ComplexDFTDataset(torch.utils.data.Dataset):
     """
     Dataset for Complex DFT training with masks and sparsity targets.
     """
-    def __init__(self, inputs, targets_dft, masks, targets_sparsity, max_sparsity=250):
+    def __init__(self, inputs, targets_dft, masks, targets_sparsity, max_sparsity):
         self.inputs = torch.tensor(inputs, dtype=torch.float32)
         self.targets_dft = torch.tensor(targets_dft, dtype=torch.float32)
         self.masks = torch.tensor(masks, dtype=torch.float32)
@@ -534,23 +572,34 @@ def train_complex_dft_unet(model, train_loader, val_loader=None, device='cpu', e
 
 
 
-def prepare_training_data_with_masks(intermediate_data):
+def prepare_training_data_with_masks(intermediate_data, dft_size, mask_size):
     """
-    Prepare training data from ml_aspade_train intermediate results.
-
-    Args:
-        intermediate_data: List where each item is [dict, np.ndarray, float]
-
+    Prepare training data with masks for DFT size of 1000 and mask size of 500.
+    
+    Parameters:
+    -----------
+    intermediate_data : list
+        List of intermediate data tuples
+    dft_size : int, default=1000
+        Size of the DFT data (complex values)
+    mask_size : int, default=500
+        Size of the masks
+    
     Returns:
-        inputs: Input complex signals [N, 1000] (500 real + 500 imaginary)
-        masks: Mask information [N, 3, 500] (3 masks, each 500 elements)
-        targets_dft: Target DFT outputs [N, 1000] (500 real + 500 imaginary)
-        targets_sparsity: Target sparsity values [N]
+    --------
+    inputs : numpy.ndarray
+        Array of input data with shape (N, 2*dft_size)
+    masks : numpy.ndarray
+        Array of masks with shape (N, 3, mask_size)
+    targets_dft : numpy.ndarray
+        Array of target DFT data with shape (N, 2*dft_size)
+    targets_sparsity : numpy.ndarray
+        Array of target sparsity values with shape (N,)
     """
     N = len(intermediate_data)
-    inputs = np.zeros((N, 1000))       # 500 real + 500 imag
-    masks = np.zeros((N, 3, 500))      # 3 masks, each with 500 elements
-    targets_dft = np.zeros((N, 1000))  # 500 real + 500 imag
+    inputs = np.zeros((N, 2 * dft_size))     # dft_size real + dft_size imag
+    masks = np.zeros((N, 3, mask_size))      # 3 masks, each with mask_size elements
+    targets_dft = np.zeros((N, 2 * dft_size))  # dft_size real + dft_size imag
     targets_sparsity = np.zeros(N)
 
     for i, example in enumerate(intermediate_data):
@@ -559,34 +608,44 @@ def prepare_training_data_with_masks(intermediate_data):
         target = example[1]
         sparsity = example[2]
 
-        # Real and imaginary parts for input (500 each)
-        inputs[i, :500] = np.real(freq_domain)[:500]
-        inputs[i, 500:] = np.imag(freq_domain)[:500]
+        # Real and imaginary parts for input - full 1000 DFT values
+        # Ensure we have enough data or pad with zeros
+        real_data = np.real(freq_domain)
+        imag_data = np.imag(freq_domain)
+        
+        # Handle cases where input data might be smaller than dft_size
+        real_len = min(len(real_data), dft_size)
+        imag_len = min(len(imag_data), dft_size)
+        
+        inputs[i, :real_len] = real_data[:real_len]
+        inputs[i, dft_size:dft_size+imag_len] = imag_data[:imag_len]
 
-        # Pack masks into the correct format
+        # Pack masks into the correct format - keep at 500 size
         # Assuming mask_data is a dictionary with keys 'Mh', 'Ml', 'Mr'
         if isinstance(mask_data, dict):
             for j, key in enumerate(['Mh', 'Ml', 'Mr']):
                 if key in mask_data:
-                    # Ensure each mask is 500 elements long
-                    mask_len = len(mask_data[key])
-                    if mask_len >= 500:
-                        masks[i, j, :] = mask_data[key][:500]
-                    else:
-                        # Pad if necessary
-                        masks[i, j, :mask_len] = mask_data[key]
+                    # Ensure each mask is mask_size elements long
+                    mask_len = min(len(mask_data[key]), mask_size)
+                    masks[i, j, :mask_len] = mask_data[key][:mask_len]
         else:
-            # Assuming mask_data is already properly formatted as [3, 500]
+            # Assuming mask_data is already properly formatted as [3, mask_size]
             # or can be reshaped to that
             if len(mask_data.shape) == 1:
-                # If it's a flattened array of 1500 elements
-                masks[i] = mask_data.reshape(3, 500)
+                # If it's a flattened array of 3*mask_size elements
+                masks[i] = mask_data.reshape(3, mask_size)
             else:
-                masks[i] = mask_data[:3, :500]
+                masks[i] = mask_data[:3, :mask_size]
 
-        # Real and imaginary parts for target (500 each)
-        targets_dft[i, :500] = np.real(target)[:500]
-        targets_dft[i, 500:] = np.imag(target)[:500]
+        # Real and imaginary parts for target - full 1000 DFT values
+        real_target = np.real(target)
+        imag_target = np.imag(target)
+        
+        real_target_len = min(len(real_target), dft_size)
+        imag_target_len = min(len(imag_target), dft_size)
+        
+        targets_dft[i, :real_target_len] = real_target[:real_target_len]
+        targets_dft[i, dft_size:dft_size+imag_target_len] = imag_target[:imag_target_len]
 
         # Sparsity
         targets_sparsity[i] = sparsity
@@ -603,32 +662,107 @@ def load_model(model, model_path):
     # Return the model after loading the state dict
     return model
 
-def predict_with_model(model, input_data, masks):
+def predict_with_model(model, input_data, masks, dft_size=None, mask_size=None):
     """
-    Use the trained model to make predictions.
+    Make predictions with the model using input data and masks.
     
-    Args:
-        model: Trained ComplexDFTUNet model
-        input_data: Input complex signal [batch, 1000] (500 real + 500 imaginary)
-        masks: Mask information [batch, 3, 500] (3 masks, each 500 elements)
+    Parameters:
+    -----------
+    model : ComplexDFTUNet
+        The model to use for predictions
+    input_data : numpy.ndarray or torch.Tensor
+        Input data of shape [batch, 2*dft_size]
+    masks : dict or numpy.ndarray or torch.Tensor
+        Mask data of shape [batch, 3, mask_size]
+    dft_size : int, optional
+        Size of the DFT data, defaults to model.dft_size if None
+    mask_size : int, optional
+        Size of the masks, defaults to model.mask_size if None
         
     Returns:
-        pred_dft: Predicted DFT outputs [batch, 1000] (500 real + 500 imaginary)
-        pred_sparsity: Predicted sparsity values [batch]
+    --------
+    tuple
+        Tuple of (pred_dft, pred_sparsity)
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
     model.eval()
     
+    # Use the model's parameters if not specified
+    if dft_size is None:
+        dft_size = model.dft_size
+    if mask_size is None:
+        mask_size = model.mask_size
+    
     # Convert inputs to tensors if they're not already
     if not isinstance(input_data, torch.Tensor):
         input_data = torch.tensor(input_data, dtype=torch.float32)
+    
+    # Handle input_data shape mismatch
+    batch_size = input_data.shape[0]
+    input_size = input_data.shape[1] // 2  # Assuming [batch, 2*some_size]
+    
+    if input_size != dft_size:
+        print(f"Warning: Input size {input_size} doesn't match model's dft_size {dft_size}. Reshaping...")
+        # Resize input_data appropriately
+        if input_size > dft_size:
+            # Truncate if input is larger
+            new_input = torch.zeros((batch_size, 2 * dft_size), dtype=input_data.dtype, device=input_data.device)
+            new_input[:, :dft_size] = input_data[:, :dft_size]  # First half (real)
+            new_input[:, dft_size:] = input_data[:, input_size:input_size+dft_size]  # Second half (imag)
+            input_data = new_input
+        else:
+            # Pad with zeros if input is smaller
+            new_input = torch.zeros((batch_size, 2 * dft_size), dtype=input_data.dtype, device=input_data.device)
+            new_input[:, :input_size] = input_data[:, :input_size]  # First half (real)
+            new_input[:, dft_size:dft_size+input_size] = input_data[:, input_size:]  # Second half (imag)
+            input_data = new_input
+    
+    # Handle masks based on their type
     if not isinstance(masks, torch.Tensor):
-            if isinstance(masks, dict):
-                # Stack masks in channel-first order: [batch, 3, 500]
-                masks = torch.stack([torch.tensor(masks[k], dtype=torch.float32) for k in sorted(masks.keys())], dim=1)
-            else:
-                masks = torch.tensor(masks, dtype=torch.float32)
+        if isinstance(masks, dict):
+            # Process masks using the utility function
+            masks = prepare_mask_for_inference(masks, mask_size)
+        else:
+            masks = torch.tensor(masks, dtype=torch.float32)
+            
+            # Ensure masks have shape [batch, 3, mask_size]
+            if masks.dim() == 2 and masks.shape[1] == 3:
+                # [batch, 3] -> [batch, 3, 1]
+                masks = masks.unsqueeze(-1)
+            
+            if masks.shape[-1] != mask_size:
+                if masks.shape[-1] == 1:
+                    # Broadcast to full size if just one value per channel
+                    masks = masks.expand(-1, -1, mask_size)
+                else:
+                    # Reshape masks to match expected size
+                    print(f"Warning: Mask shape {masks.shape} doesn't match mask_size={mask_size}. Reshaping...")
+                    # Try to reshape or interpolate
+                    if masks.shape[-1] > mask_size:
+                        # Truncate if larger
+                        masks = masks[..., :mask_size]
+                    else:
+                        # Pad with zeros if smaller
+                        new_masks = torch.zeros((masks.shape[0], masks.shape[1], mask_size), 
+                                              dtype=masks.dtype, device=masks.device)
+                        new_masks[..., :masks.shape[-1]] = masks
+                        masks = new_masks
+                    
+    # Make sure we have a batch dimension
+    if input_data.dim() == 1:
+        input_data = input_data.unsqueeze(0)
+    if masks.dim() == 2:
+        masks = masks.unsqueeze(0)
+    
+    # Additional check for mask shape
+    if masks.shape[1] != 3:
+        print(f"Warning: Mask should have 3 channels, got {masks.shape[1]}. Adjusting...")
+        new_masks = torch.zeros((masks.shape[0], 3, mask_size), 
+                              dtype=masks.dtype, device=masks.device)
+        chan_count = min(masks.shape[1], 3)
+        new_masks[:, :chan_count] = masks[:, :chan_count]
+        masks = new_masks
     
     input_data = input_data.to(device)
     masks = masks.to(device)
@@ -638,35 +772,47 @@ def predict_with_model(model, input_data, masks):
         
     # Convert predictions back to numpy arrays for easier handling
     pred_dft = pred_dft.cpu().numpy()
-    pred_sparsity = pred_sparsity.cpu().numpy() * model.max_sparsity  # Scale back to original range
+    pred_sparsity = pred_sparsity.cpu().numpy()
     
     return pred_dft, pred_sparsity
 
-def prepare_mask_for_inference(mask_data):
+def prepare_mask_for_inference(mask_data, mask_size):
     """
-    Convert a dict or numpy mask to torch.Tensor of shape [1, 3, 500]
+    Convert a dict or numpy mask to torch.Tensor of shape [1, 3, mask_size]
+    
+    Parameters:
+    -----------
+    mask_data : dict or numpy.ndarray or torch.Tensor
+        The mask data to be prepared
+    mask_size : int, default=500
+        The size of the mask
+        
+    Returns:
+    --------
+    torch.Tensor
+        The prepared mask as a tensor of shape [1, 3, mask_size]
     """
     if isinstance(mask_data, dict):
         # Create an empty mask
-        processed_mask = torch.zeros(1, 3, 500, dtype=torch.float32)
+        processed_mask = torch.zeros(1, 3, mask_size, dtype=torch.float32)
         for j, key in enumerate(['Mh', 'Ml', 'Mr']):
             if key in mask_data:
                 mask_array = np.array(mask_data[key], dtype=np.float32)
-                length = min(len(mask_array), 500)
+                length = min(len(mask_array), mask_size)
                 processed_mask[0, j, :length] = torch.tensor(mask_array[:length])
         return processed_mask
     elif isinstance(mask_data, np.ndarray) or isinstance(mask_data, torch.Tensor):
         mask_tensor = torch.tensor(mask_data, dtype=torch.float32) if isinstance(mask_data, np.ndarray) else mask_data
-        if mask_tensor.dim() == 1 and mask_tensor.numel() == 1500:
-            return mask_tensor.view(1, 3, 500)
-        elif mask_tensor.shape == (3, 500):
+        if mask_tensor.dim() == 1 and mask_tensor.numel() == 3 * mask_size:
+            return mask_tensor.view(1, 3, mask_size)
+        elif mask_tensor.shape == (3, mask_size):
             return mask_tensor.unsqueeze(0)
-        elif mask_tensor.shape == (500, 3):
+        elif mask_tensor.shape == (mask_size, 3):
             return mask_tensor.permute(1, 0).unsqueeze(0)
-        elif mask_tensor.shape == (1, 3, 500):
+        elif mask_tensor.shape == (1, 3, mask_size):
             return mask_tensor
         else:
-            raise ValueError(f"Unsupported mask shape: {mask_tensor.shape}")
+            raise ValueError(f"Unsupported mask shape: {mask_tensor.shape}. Expected dimensions compatible with mask_size={mask_size}")
     else:
         raise TypeError("Unsupported mask type")
 

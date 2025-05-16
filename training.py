@@ -21,7 +21,7 @@ def main(args):
         data = pickle.load(f)
 
     # Prepare inputs, masks, targets
-    inputs, masks, targets_dft, targets_sparsity = prepare_training_data_with_masks(data)
+    inputs, masks, targets_dft, targets_sparsity = prepare_training_data_with_masks(data, args.dft_size, args.max_sparsity)
 
     # Create dataset and loader
     train_dataset = ComplexDFTDataset(inputs, targets_dft, masks, targets_sparsity, max_sparsity=args.max_sparsity)
@@ -50,7 +50,7 @@ def main(args):
     print(f"Using device: {device}")
 
     # Initialize model
-    model = ComplexDFTUNet(dft_size=args.dft_size, mask_channels=args.mask_channels, max_sparsity=args.max_sparsity)
+    model = ComplexDFTUNet(dft_size=args.dft_size, mask_size=args.mask_size,  mask_channels=args.mask_channels, max_sparsity=args.max_sparsity)
     model = model.to(device)
     
     # Initialize training parameters
@@ -173,9 +173,10 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size for training")
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--save_path", type=str, default="saved_models", help="Directory to save trained models")
-    parser.add_argument("--dft_size", type=int, default=500, help="Size of the DFT (input signal length / 2)")
+    parser.add_argument("--dft_size", type=int, help="Size of the DFT (input signal length / 2)")
     parser.add_argument("--mask_channels", type=int, default=3, help="Number of mask input channels")
-    parser.add_argument("--max_sparsity", type=int, default=250, help="Maximum expected sparsity of input")
+    parser.add_argument("--mask_size", type=int, help="Mask length of each channel")
+    parser.add_argument("--max_sparsity", type=int, help="Maximum expected sparsity of input")
     parser.add_argument("--plot_path", type=str, default="loss_plots", help="Path to save loss history plots")
     parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate for optimizer")
     parser.add_argument("--checkpoint_freq", type=int, default=5, help="Save checkpoint every N epochs")

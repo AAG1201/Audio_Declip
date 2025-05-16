@@ -9,7 +9,6 @@ from aspade import aspade
 from dynamic_aspade import dynamic_aspade
 from pipeline import ComplexDFTUNet, load_model
 from ml_aspade import ml_aspade
-from time import time
 
 
 
@@ -44,6 +43,7 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
 
   win_len = int(win_len)
   win_shift = int(win_shift)
+  processing_time = 0
   
   # Implement the SPADE algorithm for reconstruction
   L = int(np.ceil(Ls / win_shift) * win_shift + (np.ceil(win_len / win_shift) - 1) * win_shift) # L is divisible by a 
@@ -90,12 +90,13 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
   }
 
   tot_cycles = 0
+  tot_time = 0
   training_data = []
 
 
   if eval_mode:
     # Load model
-    loaded_model = ComplexDFTUNet(dft_size=500, mask_channels=3, max_sparsity=250)
+    loaded_model = ComplexDFTUNet(dft_size=1000, mask_size =500, mask_channels=3, max_sparsity=500)
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"The model path {model_path} does not exist.")
@@ -111,7 +112,6 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
   # for n in tqdm(range(N), desc="Processing", unit="iteration", position=1, leave=False):
   # for n in range(N):
 
-  start_time = time()
 
   for n in tqdm.tqdm(range(N), desc="Processing", unit="iteration", position=0, leave=True):
     # multiplying signal block with windows and choosing corresponding masks
@@ -125,20 +125,20 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
 
     masks_seg['Mr'][idxrange2] = masks['Mr'][idx]
     masks_seg['Mh'][idxrange2] = masks['Mh'][idx]
-    masks_seg['Ml'][idxrange2] = masks['Ml'][idx]
+    masks_seg['Ml'][idxrange2] = masks['Ml'][idx] 
 
     # perform SPADE
     if eval_mode:
-      data_rec_block, cycles = ml_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s, F_red, loaded_model, device, train_gen_mode, eval_mode, restrict_mode, factor)
+      data_rec_block, cycles, processing_time = ml_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s, F_red, loaded_model, device, train_gen_mode, eval_mode, restrict_mode, factor)
     
     elif train_gen_mode:     
-      data_rec_block, metrics, cycles = ml_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s, F_red ,None, None, train_gen_mode, eval_mode, None)
+      data_rec_block, metrics, cycles = ml_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s, F_red ,None, None, train_gen_mode, eval_mode, None, None)
 
     elif dynamic:
-      data_rec_block, cycles = dynamic_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s,F_red)
+      data_rec_block, cycles, processing_time = dynamic_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s,F_red)
     
     else:
-      data_rec_block, cycles = aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s,F_red)
+      data_rec_block, cycles, processing_time = aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s,F_red)
 
     # Folding blocks together using Overlap-Add approach (OLA)
     data_rec_block = np.fft.ifftshift(data_rec_block)
@@ -148,12 +148,11 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
       training_data.append([metrics['initial_estimate'], metrics['best_estimate'], metrics['best_sparsity']]) 
 
     tot_cycles += cycles
+    tot_time += processing_time
 
   data_rec_fin = data_rec_fin[:Ls]
-
-  processing_time = time() - start_time
 
   if train_gen_mode:
     return data_rec_fin, metrics, training_data, cycles
   else:
-    return data_rec_fin, tot_cycles, N, processing_time
+    return data_rec_fin, tot_cycles, N, tot_time

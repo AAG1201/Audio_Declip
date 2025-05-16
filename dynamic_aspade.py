@@ -3,8 +3,10 @@ import numpy as np
 from toolbox.fra import frana,frsyn
 from toolbox.hard_thresholding import hard_thresholding
 from toolbox.proj_time import proj_time
+from time import time
 
 def dynamic_aspade(data_clipped,  masks, Ls, max_it, epsilon, r, s, redundancy):
+
     max_it=int(max_it)
     x_hat = np.copy(data_clipped)
     zEst = frana(x_hat, redundancy)
@@ -17,6 +19,8 @@ def dynamic_aspade(data_clipped,  masks, Ls, max_it, epsilon, r, s, redundancy):
     obj_his = np.zeros((3,1))   # Store last 3 objective values
     imp_thres = 1e-4    # Minimum improvement threshold
     max_sparsity = int(len(zEst) * 0.5)   # Maximum sparsity limit (50% of coefficients)
+
+    start_time = time()
 
     while cnt <= max_it:
         # set all but k largest coefficients to zero (complex conjugate pairs are taken into consideration)
@@ -61,6 +65,7 @@ def dynamic_aspade(data_clipped,  masks, Ls, max_it, epsilon, r, s, redundancy):
         u = u + zEst - z_bar
         
         cnt += 1    # iteration counter update
-    
 
-    return x_hat, cnt
+    processing_time = time() - start_time
+
+    return x_hat, cnt, processing_time

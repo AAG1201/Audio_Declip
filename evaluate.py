@@ -29,7 +29,9 @@ def evaluate_model(test_audio_dir: str,
                    custom_wins: List[int],
                    restrict_mode: int,
                    sdr_mode: int,
-                   pesq_mode: int) -> Dict:
+                   pesq_mode: int,
+                   n_files: int,
+                   exp_name: str) -> Dict:
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -38,6 +40,7 @@ def evaluate_model(test_audio_dir: str,
     results = {
         'file': [],
         'fs': [],
+        'target_fs': [],
         'duration': [],
         'threshold': [],
         'clipped_percentage': [],
@@ -56,10 +59,13 @@ def evaluate_model(test_audio_dir: str,
     # Get all WAV files
     wav_files = [f for f in os.listdir(test_audio_dir) if f.endswith(".wav")]
 
+    if n_files:
+        wav_files = wav_files[:n_files]  # Use only first n files
+
     if sdr_mode:
-        total_configs = len(target_fs_values) * len(input_sdrs) * len(time_clip) * len(wav_files)
+        total_configs = len(target_fs_values) * len(input_sdrs) * len(time_clip) * len(wav_files) * len(custom_wins)
     else:
-        total_configs = len(target_fs_values) * len(clipping_thresholds) * len(time_clip) * len(wav_files)
+        total_configs = len(target_fs_values) * len(clipping_thresholds) * len(time_clip) * len(wav_files) * len(custom_wins)
 
     
     pbar = tqdm(total=total_configs, desc="Processing files",position=0, leave=True)
@@ -101,8 +107,8 @@ def evaluate_model(test_audio_dir: str,
                             # win_len = np.floor(Ls / 32)
                             # win_shift = np.floor(win_len / 4)
                             win_len = custom_win
-                            win_shift = 125
-                            F_red = 1
+                            win_shift = np.floor (custom_win / 4)
+                            F_red = 2
 
                             # ASPADE parameters
                             ps_s = 1
@@ -168,6 +174,7 @@ def evaluate_model(test_audio_dir: str,
                             # Store results
                             results['file'].append(audio_file)
                             results['fs'].append(fs)
+                            results['target_fs'].append(target_fs)
                             results['duration'].append(tc)
                             results['threshold'].append(clipping_threshold)
                             results['clipped_percentage'].append(clipped_percentage)
@@ -219,9 +226,9 @@ def evaluate_model(test_audio_dir: str,
                             Ls = len(resampled_data)
                             # win_len = np.floor(Ls / 32)
                             # win_shift = np.floor(win_len / 4)
-                            win_len = custom_win
-                            win_shift = 125
-                            F_red = 1
+                            win_len = np.floor(custom_win)
+                            win_shift = np.floor(win_len / 4)
+                            F_red = 2
 
                             # ASPADE parameters
                             ps_s = 1
@@ -287,6 +294,7 @@ def evaluate_model(test_audio_dir: str,
                             # Store results
                             results['file'].append(audio_file)
                             results['fs'].append(fs)
+                            results['target_fs'].append(target_fs)
                             results['duration'].append(tc)
                             results['threshold'].append(clipping_threshold)
                             results['clipped_percentage'].append(clipped_percentage)
@@ -325,7 +333,7 @@ def evaluate_model(test_audio_dir: str,
         sdr_config = 'Threshold'
 
     # Construct filename
-    filename = f"evaluation_results_{config_type}_{sdr_config}.xlsx"
+    filename = f"evaluation_results_{config_type}_{sdr_config}_{exp_name}.xlsx"
     results_excel_path = os.path.join(output_dir, filename)
 
     # Save Excel file
@@ -354,7 +362,9 @@ def main(args):
         custom_wins=args.c_win,
         restrict_mode=args.r_mode,
         sdr_mode=args.sdr_mode,
-        pesq_mode=args.pesq_mode
+        pesq_mode=args.pesq_mode,
+        n_files=args.n_files,
+        exp_name=args.exp_name
     )
 
 
@@ -395,6 +405,10 @@ if __name__ == "__main__":
                         help="input sdr instead of threshold")
     parser.add_argument("--pesq_mode", type=int, default=1,
                         help="enable pesq calculation")
+    parser.add_argument("--n_files", type=int, default=0,
+                        help="limits the number of files used")
+    parser.add_argument("--exp_name", type=str, default="",
+                        help="custom experiment name")
 
     args = parser.parse_args()
     main(args)

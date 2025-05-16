@@ -4,6 +4,7 @@ from toolbox.fra import frana,frsyn
 from toolbox.proj_time import proj_time
 from toolbox.hard_thresholding import hard_thresholding
 from pipeline import predict_with_model, prepare_mask_for_inference
+from time import time
 
 # Evaluation version 
 def ml_aspade(data_clipped: np.ndarray,
@@ -25,41 +26,12 @@ def ml_aspade(data_clipped: np.ndarray,
     x_hat = np.copy(data_clipped)
     zEst_init = frana(x_hat, redundancy)
     zEst = zEst_init
+    processing_time = 0
 
     u = np.zeros(len(zEst), dtype=complex)
     k = s
     cnt = 1
     bestObj = float('inf')
-
-    if eval_mode:
-
-        zEst_init_real = np.real(zEst_init)
-        zEst_init_imag = np.imag(zEst_init)
-        zEst_init = np.concatenate([zEst_init_real.flatten(), zEst_init_imag.flatten()], axis=0).reshape(1, -1)
-
-        processed_mask = prepare_mask_for_inference(masks).to(device)
-
-        # Run the model
-        zEst, k = predict_with_model(loaded_model, zEst_init, processed_mask)
-
-        zEst = zEst.flatten()
-
-    
-        real = zEst[:500]
-        imag = zEst[500:]
-        zEst = real + 1j * imag  # 👈 no .numpy() needed
-
-        if restrict_mode:
-            z_bar = hard_thresholding(zEst, int(k))
-            syn = frsyn(z_bar, redundancy)
-            syn = syn[:Ls]
-            x_hat = proj_time(syn, masks, data_clipped)
-            
-            return x_hat, cnt
-
-
-        k = int(factor*k)
-
 
     # Initialize tracking
     obj_history = []
@@ -69,6 +41,46 @@ def ml_aspade(data_clipped: np.ndarray,
     imp_thres = 1e-4    # Minimum improvement threshold
     max_sparsity = int(len(zEst) * 0.5)  # Maximum sparsity limit (50% of coefficients)
 
+    start_time = time()
+
+    if eval_mode:
+
+        zEst_init_real = np.real(zEst_init)
+        zEst_init_imag = np.imag(zEst_init)
+        zEst_init = np.concatenate([zEst_init_real.flatten(), zEst_init_imag.flatten()], axis=0).reshape(1, -1)
+
+        processed_mask = prepare_mask_for_inference(masks, mask_size=int(len(zEst)/redundancy)).to(device)
+
+
+
+        # Run the model
+        zEst, k = predict_with_model(loaded_model, zEst_init, processed_mask)
+
+        zEst = zEst.flatten()
+
+    
+        real = zEst[:len(zEst)//2]
+        imag = zEst[len(zEst)//2:]
+        zEst = real + 1j * imag  # 👈 no .numpy() needed
+
+        k = k*max_sparsity
+
+        
+
+        if restrict_mode:
+            z_bar = hard_thresholding(zEst, int(k))
+            syn = frsyn(z_bar, redundancy)
+            syn = syn[:Ls]
+            x_hat = proj_time(syn, masks, data_clipped)
+            
+            return x_hat, cnt, time() - start_time
+
+
+        k = int(factor*k)
+
+    
+
+    
 
     while cnt <= max_it:
         # set all but k largest coefficients to zero (complex conjugate pairs are taken into consideration)
@@ -123,6 +135,8 @@ def ml_aspade(data_clipped: np.ndarray,
         u = u + zEst - z_bar
         
         cnt += 1    # iteration counter update
+    
+    processing_time = time() - start_time
 
     if train_gen_mode:
         mask_features = []
@@ -150,5 +164,5 @@ def ml_aspade(data_clipped: np.ndarray,
 
         return best_x_hat if best_x_hat is not None else x_hat, metrics, cnt
 
-    return x_hat, cnt
+    return x_hat, cnt, processing_time
 

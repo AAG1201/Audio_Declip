@@ -11,7 +11,7 @@ import multiprocessing
 import argparse
 
 def generate_training_data(audio_file, audio_dir, target_fs, clipping_threshold, time_clip, 
-                          win_len, win_shift, delta, F_red=1):
+                          win_len, win_shift, delta, F_red=2):
     """
     Generate training data for a single audio file
     
@@ -70,7 +70,7 @@ def generate_training_data(audio_file, audio_dir, target_fs, clipping_threshold,
     _, _, training_data, _ = spade_segmentation(
         clipped_signal, resampled_data, Ls, win_len, win_shift,
         ps_maxit, ps_epsilon, ps_r, ps_s, F_red, masks,
-        0, None, 1, 0, 0
+        0, None, 1, 0, 0, 0
     )
 
     return training_data
@@ -108,6 +108,7 @@ def main():
     parser.add_argument("--delta", type=int, required=True, help="Delta value")
     parser.add_argument("--num_processes", type=int, default=6, help="Number of parallel processes to use")
     parser.add_argument("--num_batches", type=int, default=4, help="Number of batches to split the data into")
+    parser.add_argument("--n_files", type=int, default=None, help="Limit the number of audio files to process")
     
     args = parser.parse_args()
 
@@ -116,6 +117,10 @@ def main():
     
     # Get list of all .wav files in the training directory
     wav_files = [f for f in os.listdir(args.audio_dir) if f.endswith(".wav")]
+
+    if args.n_files is not None:
+        wav_files = wav_files[:args.n_files]
+
     print(f"Found {len(wav_files)} training files", flush=True)
     
     # Split files into batches
