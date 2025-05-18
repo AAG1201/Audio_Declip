@@ -10,8 +10,6 @@ This repository provides code and tools for training and evaluating models for *
 | Lung  | 4000  | 100  |
 | Speech  | 16000   | 100  |
 
-```
-
 ## ⚙️ Setup Instructions
 
 1. **Clone the Repository**
