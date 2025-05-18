@@ -1,46 +1,16 @@
 
 # Audio Declip Project
 
-This repository provides code and tools for training and evaluating models for **audio declipping**. It supports generating datasets from custom `.wav` files. In this project, we took 4 types oof sound - bird ound, herat sound, lung sound and speech sound
+This repository provides code and tools for training and evaluating models for **audio declipping**. It supports generating datasets from custom `.wav` files. In this project, we took 4 types oof sound - bird ound, heart sound, lung sound and speech sound whose details are as follows:
 
-| Column 1       | Column 2       | Column 3       |
+| Sound Type       | Sampling rate  (Hz)    | Number of files       |
 |----------------|----------------|----------------|
-| Row 1, Col 1   | Row 1, Col 2   | Row 1, Col 3   |
-| Row 2, Col 1   | Row 2, Col 2   | Row 2, Col 3   |
-| Row 3, Col 1   | Row 3, Col 2   | Row 3, Col 3   |
-
-
----
-
-## 📁 Repository Structure
+| Bird   | 11025   | 100   |
+| Heart   | 2000   | 100  |
+| Lung  | 4000  | 100  |
+| Speech  | 16000   | 100  |
 
 ```
-Audio_Declip
-├── aspade.py                       # Baseline ASPADE 
-├── custom_output/                  # Evaluation outputs for custom inputs
-├── custom_sound/                   # Your own .wav files for testing
-├── custom_sound_variation/         # To find optimum window length for your audio dataset for training
-├── dynamic_aspade.py               # Dynamic ASPADE
-├── evaluate.py                     # Evaluation pipeline
-├── loss_plots/                     # Training loss visualizations
-├── main_ml.ipynb                   # Jupyter notebook for ML pipeline
-├── ml_aspade.py                    # ML based ASPADE 
-├── pipeline.py                     # Main data processing pipeline
-├── pkl_data/
-│   └── training_data.pkl           # Pickled training data
-├── requirements.txt                # Python dependencies
-├── saved_models/                   # Checkpoints and final models
-├── spade_segmentation.py           # Bridge
-├── test_data/                      # Test .wav files
-├── toolbox/                        # Utility functions for audio processing
-├── train_data/                     # Train .wav files
-├── train_data_gen.py               # Dataset generation (pkl data)  from .wav
-├── training.py                     # Main training script
-├── variation_study.py              # Analysis on variation experiments on custom_sound_variations
-└── variation_study_summary.xlsx
-```
-
----
 
 ## ⚙️ Setup Instructions
 
