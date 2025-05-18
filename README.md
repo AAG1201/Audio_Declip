@@ -1,7 +1,14 @@
 
 # Audio Declip Project
 
-This repository provides code and tools for training and evaluating models for **audio declipping**. It supports generating datasets from custom `.wav` files.
+This repository provides code and tools for training and evaluating models for **audio declipping**. It supports generating datasets from custom `.wav` files. In this project, we took 4 types oof sound - bird ound, herat sound, lung sound and speech sound
+
+| Column 1       | Column 2       | Column 3       |
+|----------------|----------------|----------------|
+| Row 1, Col 1   | Row 1, Col 2   | Row 1, Col 3   |
+| Row 2, Col 1   | Row 2, Col 2   | Row 2, Col 3   |
+| Row 3, Col 1   | Row 3, Col 2   | Row 3, Col 3   |
+
 
 ---
 
