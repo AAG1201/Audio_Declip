@@ -12,7 +12,7 @@ from ml_aspade import ml_aspade
 
 
 
-def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, maxit, epsilon, r, s, F_red, masks, dynamic, model_path, train_gen_mode, eval_mode, restrict_mode, factor):
+def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, maxit, epsilon, r, s, F_red, masks, dynamic, model_path, train_gen_mode, eval_mode, restrict_mode, factor, verbose):
   
   """
   Performs signal reconstruction using the SPADE (Sparse Adaptive Declipping Estimator) algorithm.
@@ -112,8 +112,20 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
   # for n in tqdm(range(N), desc="Processing", unit="iteration", position=1, leave=False):
   # for n in range(N):
 
+  if verbose:
+    # Use tqdm progress bar for verbose mode
+    iterator = tqdm.tqdm(range(N), desc="Processing", unit="iteration", position=0, leave=True)
+  else:
+    # Use regular range without progress bar for non-verbose mode
+    iterator = range(N)
 
-  for n in tqdm.tqdm(range(N), desc="Processing", unit="iteration", position=0, leave=True):
+  all_k_values = []
+  all_objVal_values = []
+  all_iterations = []
+  all_processing_times = []
+
+
+  for n in iterator:
     # multiplying signal block with windows and choosing corresponding masks
     idx = np.mod(n * win_shift + idxrange, L)
     idx = idx.astype(int)
@@ -135,10 +147,10 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
       data_rec_block, metrics, cycles = ml_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s, F_red ,None, None, train_gen_mode, eval_mode, None, None)
 
     elif dynamic:
-      data_rec_block, cycles, processing_time = dynamic_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s,F_red)
+      data_rec_block, cycles, processing_time, k_arr, objVal_arr = dynamic_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s,F_red)
     
     else:
-      data_rec_block, cycles, processing_time = aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s,F_red)
+      data_rec_block, cycles, processing_time, k_arr, objVal_arr = aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s,F_red)
 
     # Folding blocks together using Overlap-Add approach (OLA)
     data_rec_block = np.fft.ifftshift(data_rec_block)
@@ -150,9 +162,17 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
     tot_cycles += cycles
     tot_time += processing_time
 
+
+    # Store results
+    all_k_values.append(k_arr)
+    all_objVal_values.append(objVal_arr)
+    all_iterations.append(cycles)
+    all_processing_times.append(processing_time)
+
+
   data_rec_fin = data_rec_fin[:Ls]
 
   if train_gen_mode:
     return data_rec_fin, metrics, training_data, cycles
   else:
-    return data_rec_fin, tot_cycles, N, tot_time
+    return data_rec_fin, tot_cycles, N, tot_time, all_k_values, all_objVal_values, all_iterations, all_processing_times

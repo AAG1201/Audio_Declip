@@ -7,6 +7,8 @@ from time import time
 
 def aspade(data_clipped,  masks, Ls, max_it, epsilon, r, s, redundancy):
 
+    k_arr = []
+    objVal_arr = []
     
     # initialization of variables
     max_it=int(max_it)
@@ -32,6 +34,9 @@ def aspade(data_clipped,  masks, Ls, max_it, epsilon, r, s, redundancy):
         if objVal <= bestObj:
             data_rec = x_hat
             bestObj = objVal
+
+        k_arr.append(k)
+        objVal_arr.append(objVal)
         
         if objVal <= epsilon:   # termination step
             break
@@ -54,4 +59,4 @@ def aspade(data_clipped,  masks, Ls, max_it, epsilon, r, s, redundancy):
         
     processing_time = time() - start_time
 
-    return x_hat, cnt, processing_time
+    return data_rec, cnt, processing_time, k_arr, objVal_arr

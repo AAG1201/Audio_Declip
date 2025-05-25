@@ -82,49 +82,78 @@ def ml_aspade(data_clipped: np.ndarray,
 
     
 
+    # while cnt <= max_it:
+    #     # set all but k largest coefficients to zero (complex conjugate pairs are taken into consideration)
+
+
+    #     z_bar = hard_thresholding(zEst + u, k)
+
+    #     objVal = np.linalg.norm(zEst - z_bar)  # update termination function
+
+    #     obj_history.append(objVal)
+    #     sparsity_history.append(k)
+        
+
+    #     # Store objective value history
+    #     obj_his = np.roll(obj_his, 1)
+    #     obj_his[0] = objVal
+        
+    #     if objVal <= bestObj:
+    #         bestObj = objVal
+    #         best_x_hat = np.copy(x_hat)
+    #         best_k = k
+
+    #     # Dynamic sparsity update based on convergence behavior
+
+    #     if cnt > 3:
+    #         rel_improvement = (obj_his[2] - objVal) / obj_his[2]    # Calculate relative improvement
+            
+    #         if rel_improvement < imp_thres:
+    #             k = min(k + 2 * s, max_sparsity)    # Slow convergence - increase sparsity more aggressively
+    #         elif rel_improvement > 5 * imp_thres:
+    #             k = k   # Fast convergence - maintain current sparsity
+    #         else:
+    #             if cnt % r == 0:
+    #                 k = min(k + s, max_sparsity)
+
+    #     if cnt > 1:
+    #         adap_epsilon = epsilon * (1 + 0.1 * np.log(cnt))
+    #     else:
+    #         adap_epsilon = epsilon    # termination step with adaptive threshold
+
+    #     if objVal <= adap_epsilon:
+    #         break
+
+    #     # projection onto the set of feasible solutions    
+    #     b = z_bar - u
+    #     syn = frsyn(b, redundancy)
+    #     syn = syn[:Ls]
+    #     x_hat = proj_time(syn, masks, data_clipped)
+        
+    #     # dual variable update
+    #     zEst = frana(x_hat, redundancy)
+    #     u = u + zEst - z_bar
+        
+    #     cnt += 1    # iteration counter update
+
     while cnt <= max_it:
-        # set all but k largest coefficients to zero (complex conjugate pairs are taken into consideration)
-
-
-        z_bar = hard_thresholding(zEst + u, k)
+        
+        z_bar = hard_thresholding(zEst + u, k)  # set all but k largest coefficients to zero (complex conjugate pairs are taken into consideration)
 
         objVal = np.linalg.norm(zEst - z_bar)  # update termination function
-
-        obj_history.append(objVal)
-        sparsity_history.append(k)
-        
-
-        # Store objective value history
-        obj_his = np.roll(obj_his, 1)
-        obj_his[0] = objVal
         
         if objVal <= bestObj:
+            data_rec = x_hat
+            best_x_hat = data_rec
             bestObj = objVal
-            best_x_hat = np.copy(x_hat)
-            best_k = k
 
-        # Dynamic sparsity update based on convergence behavior
-
-        if cnt > 3:
-            rel_improvement = (obj_his[2] - objVal) / obj_his[2]    # Calculate relative improvement
-            
-            if rel_improvement < imp_thres:
-                k = min(k + 2 * s, max_sparsity)    # Slow convergence - increase sparsity more aggressively
-            elif rel_improvement > 5 * imp_thres:
-                k = k   # Fast convergence - maintain current sparsity
-            else:
-                if cnt % r == 0:
-                    k = min(k + s, max_sparsity)
-
-        if cnt > 1:
-            adap_epsilon = epsilon * (1 + 0.1 * np.log(cnt))
-        else:
-            adap_epsilon = epsilon    # termination step with adaptive threshold
-
-        if objVal <= adap_epsilon:
+        # k_arr.append(k)
+        # objVal_arr.append(objVal)
+        
+        if objVal <= epsilon:   # termination step
             break
-
-        # projection onto the set of feasible solutions    
+        
+        # projection onto the set of feasible solutions 
         b = z_bar - u
         syn = frsyn(b, redundancy)
         syn = syn[:Ls]
@@ -135,6 +164,11 @@ def ml_aspade(data_clipped: np.ndarray,
         u = u + zEst - z_bar
         
         cnt += 1    # iteration counter update
+        best_k = k
+        
+        # incrementation of variable k (require less sparse signal in next iteration)
+        if cnt % r == 0:
+            k += s
     
     processing_time = time() - start_time
 

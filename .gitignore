@@ -1,6 +1,8 @@
 *.pkl
 *.pth
 *.log
+*.xlsx
+*.mat
 aagproj/
 __pycache__/
 *.pyc

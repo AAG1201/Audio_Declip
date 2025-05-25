@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import pandas as pd
 import os
 from tqdm import tqdm
 import soundfile as sf
@@ -11,6 +12,8 @@ from toolbox.clip_sdr import clip_sdr
 from typing import List, Dict
 from toolbox.sdr import sdr
 from pesq import pesq
+import scipy.io as sio
+
 
 
 def evaluate_model(test_audio_dir: str,
@@ -31,7 +34,11 @@ def evaluate_model(test_audio_dir: str,
                    sdr_mode: int,
                    pesq_mode: int,
                    n_files: int,
-                   exp_name: str) -> Dict:
+                   exp_name: str,
+                   verbose: int,
+                   stepsize: int,
+                   steprate: int,
+                   block_metrics: int) -> Dict:
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -53,6 +60,18 @@ def evaluate_model(test_audio_dir: str,
         'blocks': [],
         'processing_time': []
     }
+
+    if block_metrics:
+
+        results1 = {
+            'Block_summary': [],
+            'Iterations': [],
+            'ProcessingTime(s)': [],
+            'Block': [],
+            'Iteration': [],
+            'k': [],
+            'objVal': []
+        }
 
 
 
@@ -111,8 +130,8 @@ def evaluate_model(test_audio_dir: str,
                             F_red = 2
 
                             # ASPADE parameters
-                            ps_s = 1
-                            ps_r = 2
+                            ps_s = stepsize
+                            ps_r = steprate
                             ps_epsilon = 0.1
                             ps_maxit = np.ceil(np.floor(win_len * F_red / 2 + 1) * ps_r / ps_s)
 
@@ -124,10 +143,10 @@ def evaluate_model(test_audio_dir: str,
                             
                         
                             # Perform reconstruction
-                            reconstructed_signal, cycles, blocks, processing_time = spade_segmentation(
+                            reconstructed_signal, cycles, blocks, processing_time, all_k_values, all_objVal_values, all_iterations, all_processing_times = spade_segmentation(
                                 clipped_signal, resampled_data, Ls, win_len, win_shift,
                                 ps_maxit, ps_epsilon, ps_r, ps_s, F_red, masks, dynamic, model_path,
-                                train_gen_mode,  eval_mode, restrict_mode, factor)
+                                train_gen_mode,  eval_mode, restrict_mode, factor, verbose)
 
 
                             # Resample back to target_fs (not original fs)
@@ -166,10 +185,7 @@ def evaluate_model(test_audio_dir: str,
                                 output_path_original = os.path.join(full_dir_path, f"original_{audio_file}")
                                 sf.write(output_path_original, data, fs)
 
-
-                            
-
-                            
+                        
 
                             # Store results
                             results['file'].append(audio_file)
@@ -186,6 +202,40 @@ def evaluate_model(test_audio_dir: str,
                             results['winlen'].append(custom_win)
                             results['blocks'].append(blocks)
                             results['processing_time'].append(processing_time)
+
+                            if block_metrics:
+
+                                # Lists for the detailed evolution file
+                                block_list = []
+                                iteration_list = []
+                                k_list = []
+                                objVal_list = []
+
+                                for block_idx, (k_vals, obj_vals) in enumerate(zip(all_k_values, all_objVal_values)):
+                                    k_vals = list(k_vals)
+                                    obj_vals = list(obj_vals)
+                                    for iter_idx, (k, obj) in enumerate(zip(k_vals, obj_vals)):
+                                        block_list.append(block_idx)
+                                        iteration_list.append(iter_idx)
+                                        k_list.append(float(k))
+                                        objVal_list.append(float(obj))
+
+                                # Lists for the summary file
+                                block_summary_list = list(range(len(all_iterations)))
+                                iterations_summary_list = [int(i) for i in all_iterations]
+                                processing_time_summary_list = [float(t) for t in all_processing_times]
+
+
+                                
+                                results1['Block_summary'].append(block_summary_list)
+                                results1['Iterations'].append(iterations_summary_list)
+                                results1['ProcessingTime(s)'].append(processing_time_summary_list)
+                                results1['Block'].append(block_list)
+                                results1['Iteration'].append(iteration_list)
+                                results1['k'].append(k_list)
+                                results1['objVal'].append(objVal_list)
+
+                                                    
                         
                             pbar.update(1)  # Update progress bar after each file
     
@@ -231,8 +281,8 @@ def evaluate_model(test_audio_dir: str,
                             F_red = 2
 
                             # ASPADE parameters
-                            ps_s = 1
-                            ps_r = 2
+                            ps_s = stepsize
+                            ps_r = steprate
                             ps_epsilon = 0.1
                             ps_maxit = np.ceil(np.floor(win_len * F_red / 2 + 1) * ps_r / ps_s)
 
@@ -243,10 +293,10 @@ def evaluate_model(test_audio_dir: str,
                                 clip_sdr_modified(resampled_data, clipping_threshold)
 
                             # Perform reconstruction
-                            reconstructed_signal, cycles, blocks, processing_time = spade_segmentation(
+                            reconstructed_signal, cycles, blocks, processing_time, all_k_values, all_objVal_values, all_iterations, all_processing_times = spade_segmentation(
                                 clipped_signal, resampled_data, Ls, win_len, win_shift,
                                 ps_maxit, ps_epsilon, ps_r, ps_s, F_red, masks, dynamic, model_path,
-                                train_gen_mode,  eval_mode, restrict_mode, factor)
+                                train_gen_mode,  eval_mode, restrict_mode, factor, verbose)
 
 
                             # Resample back to target_fs (not original fs)
@@ -286,10 +336,7 @@ def evaluate_model(test_audio_dir: str,
                                 output_path_original = os.path.join(full_dir_path, f"original_{audio_file}")
                                 sf.write(output_path_original, data, fs)
 
-
-                            
-
-                            
+                             
 
                             # Store results
                             results['file'].append(audio_file)
@@ -306,6 +353,41 @@ def evaluate_model(test_audio_dir: str,
                             results['winlen'].append(custom_win)
                             results['blocks'].append(blocks)
                             results['processing_time'].append(processing_time)
+
+
+                            if block_metrics:
+
+                                # Lists for the detailed evolution file
+                                block_list = []
+                                iteration_list = []
+                                k_list = []
+                                objVal_list = []
+
+                                for block_idx, (k_vals, obj_vals) in enumerate(zip(all_k_values, all_objVal_values)):
+                                    k_vals = list(k_vals)
+                                    obj_vals = list(obj_vals)
+                                    for iter_idx, (k, obj) in enumerate(zip(k_vals, obj_vals)):
+                                        block_list.append(block_idx)
+                                        iteration_list.append(iter_idx)
+                                        k_list.append(float(k))
+                                        objVal_list.append(float(obj))
+
+                                # Lists for the summary file
+                                block_summary_list = list(range(len(all_iterations)))
+                                iterations_summary_list = [int(i) for i in all_iterations]
+                                processing_time_summary_list = [float(t) for t in all_processing_times]
+
+
+                                
+                                results1['Block_summary'].append(block_summary_list)
+                                results1['Iterations'].append(iterations_summary_list)
+                                results1['ProcessingTime(s)'].append(processing_time_summary_list)
+                                results1['Block'].append(block_list)
+                                results1['Iteration'].append(iteration_list)
+                                results1['k'].append(k_list)
+                                results1['objVal'].append(objVal_list)
+
+
                         
                             pbar.update(1)  # Update progress bar after each file
 
@@ -339,6 +421,14 @@ def evaluate_model(test_audio_dir: str,
     # Save Excel file
     results_df.to_excel(results_excel_path, index=False)
 
+    if block_metrics:
+
+        # Create a filename for the .mat file
+        mat_filename = f"Block_evaluation_results_{config_type}_{sdr_config}_{exp_name}.mat"
+        results_mat_path = os.path.join(output_dir, mat_filename)
+
+        # Save as .mat
+        sio.savemat(results_mat_path, {'results': results1})
 
 
 
@@ -364,7 +454,11 @@ def main(args):
         sdr_mode=args.sdr_mode,
         pesq_mode=args.pesq_mode,
         n_files=args.n_files,
-        exp_name=args.exp_name
+        exp_name=args.exp_name,
+        verbose=args.verbose,
+        stepsize=args.stepsize,
+        steprate=args.steprate,
+        block_metrics=args.block_metrics
     )
 
 
@@ -409,7 +503,14 @@ if __name__ == "__main__":
                         help="limits the number of files used")
     parser.add_argument("--exp_name", type=str, default="",
                         help="custom experiment name")
-
+    parser.add_argument("--verbose", type=int, default=0,
+                        help="enable processing updates in output")
+    parser.add_argument("--stepsize", type=int, default=1,
+                        help="Stepsize for the algorithm")
+    parser.add_argument("--steprate", type=int, default=2,
+                        help="Steprate for the algorithm")
+    parser.add_argument("--block_metrics", type=int, default=0,
+                            help="Enable block wise analysis")
     args = parser.parse_args()
     main(args)
 
