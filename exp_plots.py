@@ -559,6 +559,8 @@ def plot_comparison():
 
     # File paths
     base_dir = '/data2/AAG/Audio_Declip/exp/comparison'
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
     models = ['baseline', 'dynamic']
     datasets = ['Bird', 'Heart', 'Lung', 'Speech']
 

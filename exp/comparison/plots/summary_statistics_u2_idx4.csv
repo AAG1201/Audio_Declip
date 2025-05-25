@@ -1,0 +1,5 @@
+Sound_Type,Baseline_SDR_Mean,Baseline_SDR_Std,Baseline_SDR_Final,Dynamic_SDR_Mean,Dynamic_SDR_Std,Dynamic_SDR_Final,SDR_Improvement,Baseline_K_Mean,Dynamic_K_Mean,K_Difference,Convergence_Iterations
+Bird,0.4702,0.3757,0.0999,0.4311,0.3144,0.0982,-0.0391,98.7494,102.9624,4.213,266
+Heart,3.4762,4.4551,0.097,3.2188,3.8823,0.0927,-0.2574,225.2497,229.789,4.5393,654
+Lung,4.2326,6.4344,0.0921,4.087,6.5875,0.0881,-0.1456,49.0,47.4968,-1.5032,157
+Speech,4.0903,5.5755,0.0993,3.8475,4.8019,0.094,-0.2428,473.2499,480.2074,6.9575,1244

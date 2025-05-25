@@ -96,7 +96,7 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
 
   if eval_mode:
     # Load model
-    loaded_model = ComplexDFTUNet(dft_size=1000, mask_size =500, mask_channels=3, max_sparsity=500)
+    loaded_model = ComplexDFTUNet(dft_size=1024, mask_size=512, mask_channels=3, max_sparsity=512)
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"The model path {model_path} does not exist.")
@@ -141,6 +141,8 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
 
     # perform SPADE
     if eval_mode:
+      k_arr = 0
+      objVal_arr = 0
       data_rec_block, cycles, processing_time = ml_aspade(data_block, masks_seg, Lss, maxit, epsilon, r, s, F_red, loaded_model, device, train_gen_mode, eval_mode, restrict_mode, factor)
     
     elif train_gen_mode:     
@@ -162,12 +164,12 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
     tot_cycles += cycles
     tot_time += processing_time
 
-
-    # Store results
-    all_k_values.append(k_arr)
-    all_objVal_values.append(objVal_arr)
-    all_iterations.append(cycles)
-    all_processing_times.append(processing_time)
+    if train_gen_mode == 0:
+      # Store results
+      all_k_values.append(k_arr)
+      all_objVal_values.append(objVal_arr)
+      all_iterations.append(cycles)
+      all_processing_times.append(processing_time)
 
 
   data_rec_fin = data_rec_fin[:Ls]

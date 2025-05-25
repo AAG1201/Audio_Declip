@@ -3,6 +3,7 @@ import os
 import soundfile as sf
 from scipy.signal import resample
 from toolbox.clip_sdr_modified import clip_sdr_modified
+from toolbox.clip_sdr import clip_sdr
 from spade_segmentation import spade_segmentation
 from typing import List
 import pickle
@@ -63,14 +64,17 @@ def generate_training_data(audio_file, audio_dir, target_fs, clipping_threshold,
     ps_epsilon = 0.1
     ps_maxit = np.ceil(np.floor(win_len * F_red / 2 + 1) * ps_r / ps_s)
 
+    # # Generate clipped signal
+    # clipped_signal, masks, _, _, _ = clip_sdr_modified(resampled_data, clipping_threshold)
+
     # Generate clipped signal
-    clipped_signal, masks, _, _, _ = clip_sdr_modified(resampled_data, clipping_threshold)
+    clipped_signal, masks, _, _, _ = clip_sdr(resampled_data, clipping_threshold)
     
     # Process with SPADE segmentation
     _, _, training_data, _ = spade_segmentation(
         clipped_signal, resampled_data, Ls, win_len, win_shift,
         ps_maxit, ps_epsilon, ps_r, ps_s, F_red, masks,
-        0, None, 1, 0, 0, 0
+        0, None, 1, 0, 0, 0, 0
     )
 
     return training_data
