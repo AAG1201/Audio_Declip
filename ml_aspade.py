@@ -42,6 +42,7 @@ def ml_aspade(data_clipped: np.ndarray,
     max_sparsity = int(len(zEst) * 0.5)  # Maximum sparsity limit (50% of coefficients)
 
     start_time = time()
+    best_k = 0
 
     if eval_mode:
 

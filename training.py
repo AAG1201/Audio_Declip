@@ -21,7 +21,7 @@ def main(args):
         data = pickle.load(f)
 
     # Prepare inputs, masks, targets
-    inputs, masks, targets_dft, targets_sparsity = prepare_training_data_with_masks(data, args.dft_size, args.max_sparsity)
+    inputs, masks, targets_dft, targets_sparsity = prepare_training_data_with_masks(data, 2*args.mask_size, args.max_sparsity)
 
     # Create dataset and loader
     train_dataset = ComplexDFTDataset(inputs, targets_dft, masks, targets_sparsity, max_sparsity=args.max_sparsity)
@@ -50,7 +50,7 @@ def main(args):
     print(f"Using device: {device}")
 
     # Initialize model
-    model = ComplexDFTUNet(dft_size=args.dft_size, mask_size=args.mask_size,  mask_channels=args.mask_channels, max_sparsity=args.max_sparsity)
+    model = ComplexDFTUNet(dft_size = 2*args.mask_size, mask_size=args.mask_size,  mask_channels=args.mask_channels, max_sparsity=args.max_sparsity)
     model = model.to(device)
     
     # Initialize training parameters
@@ -139,24 +139,6 @@ def main(args):
         lr=args.learning_rate
     )
 
-    # # Train
-    # loss_history = train_mag_phase_dft_unet(
-    #     model,
-    #     train_loader,
-    #     val_loader=val_loader,
-    #     device=device,
-    #     epochs=args.epochs,
-    #     start_epoch=start_epoch,
-    #     optimizer=optimizer,
-    #     scheduler=None,
-    #     history=None,
-    #     best_loss=best_loss,
-    #     save_path=args.save_path,
-    #     plot_path=args.plot_path,
-    #     checkpoint_freq=args.checkpoint_freq,
-    #     lr=args.learning_rate
-    # )
-
     
     # Save the loss history to a separate JSON file for easy plotting later
     history_path = os.path.join(args.save_path, "loss_history.json")
@@ -173,7 +155,6 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size for training")
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--save_path", type=str, default="saved_models", help="Directory to save trained models")
-    parser.add_argument("--dft_size", type=int, help="Size of the DFT (input signal length / 2)")
     parser.add_argument("--mask_channels", type=int, default=3, help="Number of mask input channels")
     parser.add_argument("--mask_size", type=int, help="Mask length of each channel")
     parser.add_argument("--max_sparsity", type=int, help="Maximum expected sparsity of input")

@@ -38,7 +38,9 @@ def evaluate_model(test_audio_dir: str,
                    verbose: int,
                    stepsize: int,
                    steprate: int,
-                   block_metrics: int) -> Dict:
+                   block_metrics: int,
+                   mask_size: int,
+                   max_sparsity: int) -> Dict:
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -146,7 +148,7 @@ def evaluate_model(test_audio_dir: str,
                             reconstructed_signal, cycles, blocks, processing_time, all_k_values, all_objVal_values, all_iterations, all_processing_times = spade_segmentation(
                                 clipped_signal, resampled_data, Ls, win_len, win_shift,
                                 ps_maxit, ps_epsilon, ps_r, ps_s, F_red, masks, dynamic, model_path,
-                                train_gen_mode,  eval_mode, restrict_mode, factor, verbose)
+                                train_gen_mode,  eval_mode, restrict_mode, factor, verbose, mask_size, max_sparsity)
 
 
                             # Resample back to target_fs (not original fs)
@@ -296,7 +298,7 @@ def evaluate_model(test_audio_dir: str,
                             reconstructed_signal, cycles, blocks, processing_time, all_k_values, all_objVal_values, all_iterations, all_processing_times = spade_segmentation(
                                 clipped_signal, resampled_data, Ls, win_len, win_shift,
                                 ps_maxit, ps_epsilon, ps_r, ps_s, F_red, masks, dynamic, model_path,
-                                train_gen_mode,  eval_mode, restrict_mode, factor, verbose)
+                                train_gen_mode,  eval_mode, restrict_mode, factor, verbose, mask_size, max_sparsity)
 
 
                             # Resample back to target_fs (not original fs)
@@ -458,7 +460,9 @@ def main(args):
         verbose=args.verbose,
         stepsize=args.stepsize,
         steprate=args.steprate,
-        block_metrics=args.block_metrics
+        block_metrics=args.block_metrics,
+        mask_size=args.mask_size,
+        max_sparsity=args.max_sparsity
     )
 
 
@@ -511,6 +515,10 @@ if __name__ == "__main__":
                         help="Steprate for the algorithm")
     parser.add_argument("--block_metrics", type=int, default=0,
                             help="Enable block wise analysis")
+    parser.add_argument("--mask_size", type=int,
+                            help="Mask length of each channel")
+    parser.add_argument("--max_sparsity", type=int,
+                            help="Maximum expected sparsity of input")
     args = parser.parse_args()
     main(args)
 

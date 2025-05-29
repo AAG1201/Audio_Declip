@@ -12,7 +12,7 @@ from ml_aspade import ml_aspade
 
 
 
-def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, maxit, epsilon, r, s, F_red, masks, dynamic, model_path, train_gen_mode, eval_mode, restrict_mode, factor, verbose):
+def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, maxit, epsilon, r, s, F_red, masks, dynamic, model_path, train_gen_mode, eval_mode, restrict_mode, factor, verbose, mask_size, max_sparsity):
   
   """
   Performs signal reconstruction using the SPADE (Sparse Adaptive Declipping Estimator) algorithm.
@@ -96,7 +96,7 @@ def spade_segmentation(clipped_signal, resampled_data, Ls, win_len, win_shift, m
 
   if eval_mode:
     # Load model
-    loaded_model = ComplexDFTUNet(dft_size=1024, mask_size=512, mask_channels=3, max_sparsity=512)
+    loaded_model = ComplexDFTUNet(dft_size=2*mask_size, mask_size=mask_size, mask_channels=3, max_sparsity=max_sparsity)
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"The model path {model_path} does not exist.")

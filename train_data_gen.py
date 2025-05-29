@@ -11,7 +11,7 @@ import shutil
 import multiprocessing
 import argparse
 
-def generate_training_data(audio_file, audio_dir, target_fs, clipping_threshold, time_clip, 
+def generate_training_data(audio_file, audio_dir, target_fs, levels, sdr_mode, time_clip, 
                           win_len, win_shift, delta, F_red=2):
     """
     Generate training data for a single audio file
@@ -64,24 +64,25 @@ def generate_training_data(audio_file, audio_dir, target_fs, clipping_threshold,
     ps_epsilon = 0.1
     ps_maxit = np.ceil(np.floor(win_len * F_red / 2 + 1) * ps_r / ps_s)
 
-    # # Generate clipped signal
-    # clipped_signal, masks, _, _, _ = clip_sdr_modified(resampled_data, clipping_threshold)
 
-    # Generate clipped signal
-    clipped_signal, masks, _, _, _ = clip_sdr(resampled_data, clipping_threshold)
-    
+    if sdr_mode == 1:
+        clipped_signal, masks, _, _, _ = clip_sdr(resampled_data, levels)
+    else:
+        clipped_signal, masks, _, _, _ = clip_sdr_modified(resampled_data, levels)
+
+
     # Process with SPADE segmentation
     _, _, training_data, _ = spade_segmentation(
         clipped_signal, resampled_data, Ls, win_len, win_shift,
         ps_maxit, ps_epsilon, ps_r, ps_s, F_red, masks,
-        0, None, 1, 0, 0, 0, 0
+        0, None, 1, 0, 0, 0, 0, 0, 0
     )
 
     return training_data
 
 def process_batch(batch_params):
     """Process a single batch of files with specific parameters"""
-    audio_files, audio_dir, target_fs, clipping_threshold, time_clip, win_len, win_shift, delta, batch_id = batch_params
+    audio_files, audio_dir, target_fs, clipping_threshold, sdr_mode, time_clip, win_len, win_shift, delta, batch_id = batch_params
     
     print(f"Processing batch {batch_id}: fs={target_fs}, clip={clipping_threshold}, {len(audio_files)} files", flush=True)
     
@@ -90,9 +91,9 @@ def process_batch(batch_params):
         audio_file_name = os.path.basename(audio_file)
         try:
             file_data = generate_training_data(
-                audio_file_name, audio_dir, target_fs, clipping_threshold, 
-                time_clip, win_len, win_shift, delta
-            )
+                            audio_file_name, audio_dir, target_fs, clipping_threshold, 
+                            sdr_mode, time_clip, win_len, win_shift, delta
+                        )
             batch_training_data.extend(file_data)
         except Exception as e:
             print(f"Error processing {audio_file_name}: {str(e)}", flush=True)
@@ -105,7 +106,8 @@ def main():
     parser.add_argument("--audio_dir", type=str, required=True, help="Path to audio directory (training files)")
     parser.add_argument("--output_path", type=str, required=True, help="Path to save the output pickle file")
     parser.add_argument("--target_fs_values", type=int, nargs='+', required=True, help="List of target sampling frequencies")
-    parser.add_argument("--clipping_thresholds", type=float, nargs='+', required=True, help="List of clipping thresholds")
+    parser.add_argument("--levels", type=float, nargs='+', required=True, help="List of clipping thresholds / input sdrs")
+    parser.add_argument("--sdr_mode", type=int, default=0, help="input sdr instead of threshold")
     parser.add_argument("--time_clip", type=int, required=True, help="Time clip value in seconds")
     parser.add_argument("--win_len", type=int, required=True, help="Window length")
     parser.add_argument("--win_shift", type=int, required=True, help="Window Shift")
@@ -146,13 +148,14 @@ def main():
     batch_id = 1
     
     for target_fs in args.target_fs_values:
-        for clipping_threshold in args.clipping_thresholds:
+        for clipping_threshold in args.levels:
             for batch in file_batches:
                 batch_params.append((
                     batch, 
                     args.audio_dir, 
                     target_fs, 
                     clipping_threshold, 
+                    args.sdr_mode,
                     args.time_clip,
                     args.win_len,
                     args.win_shift,
