@@ -4,6 +4,7 @@ import numpy as np
 import os
 import seaborn as sns
 import scipy.io as sio
+import json
 
 
 # Set the output directory for saving plots
@@ -604,12 +605,13 @@ def plot_comparison():
             baseline_df = data['baseline'][ds]
             dynamic_df = data['dynamic'][ds]
 
-            # For delta_sdr, reverse the data (dynamic as ref)
-            if metric == 'delta_sdr':
-                ref_df, alt_df = dynamic_df, baseline_df
-            else:
-                ref_df, alt_df = baseline_df, dynamic_df
+            # # For delta_sdr, reverse the data (dynamic as ref)
+            # if metric == 'delta_sdr':
+            #     ref_df, alt_df = dynamic_df, baseline_df
+            # else:
+            #     ref_df, alt_df = baseline_df, dynamic_df
 
+            ref_df, alt_df = baseline_df, dynamic_df
 
 
             unique_sdrs = sorted(ref_df['sdr_orig_rounded'].unique())
@@ -677,3 +679,227 @@ def plot_comparison():
             dyn_avg = data['dynamic'][ds][metric].mean()
             improvement = ((dyn_avg - base_avg) / base_avg) * 100 if base_avg != 0 else 0
             print(f"{ds}: Baseline={base_avg:.3f}, Dynamic={dyn_avg:.3f}, Improvement={improvement:+.1f}%")
+
+
+def plot_losses_from_json(json_path, plot_type='all', save_path='.', 
+                          train_colors=['tab:blue', 'tab:green', 'tab:orange'],
+                          val_colors=['tab:red', 'tab:purple', 'tab:brown'],
+                          line_width=2, marker_size=4, 
+                          title_size=16, font_size=14, tick_size=12, legend_size=12):
+    """
+    Plot training/validation loss from a saved JSON file.
+
+    Parameters:
+    - json_path: str, path to the loss_history.json
+    - plot_type: str, one of ['train', 'val', 'compare', 'all']
+    - save_path: str, directory to save plots
+    - *_colors, *_size: optional style configurations
+    """
+    # Load JSON
+    with open(json_path, 'r') as f:
+        history = json.load(f)
+
+    epochs = range(1, len(history['total_loss']) + 1)
+
+    def save_fig(fig, name):
+        fig.tight_layout(pad=3.0)
+        fig.savefig(os.path.join(save_path, f"{name}.png"), dpi=300, bbox_inches='tight')
+        plt.close(fig)
+
+    if plot_type == 'train':
+        fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+        titles = ['Total Training Loss', 'DFT Training Loss', 'Sparsity Training Loss']
+        keys = ['total_loss', 'dft_loss', 'sparsity_loss']
+
+        for i, ax in enumerate(axes):
+            ax.plot(epochs, history[keys[i]], color=train_colors[i], linewidth=line_width, marker='o', markersize=marker_size)
+            ax.set_title(titles[i], fontsize=title_size, fontweight='bold')
+            ax.set_xlabel("Epoch", fontsize=font_size)
+            ax.set_ylabel("Loss", fontsize=font_size)
+            ax.grid(True, alpha=0.3)
+            ax.tick_params(axis='both', labelsize=tick_size)
+
+        save_fig(fig, "training_losses")
+
+    elif plot_type == 'val':
+        if 'val_total_loss' not in history or len(history['val_total_loss']) == 0:
+            print("Validation losses not found in JSON.")
+            return
+
+        fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+        titles = ['Total Validation Loss', 'DFT Validation Loss', 'Sparsity Validation Loss']
+        keys = ['val_total_loss', 'val_dft_loss', 'val_sparsity_loss']
+
+        for i, ax in enumerate(axes):
+            ax.plot(epochs, history[keys[i]], color=val_colors[i], linewidth=line_width, marker='s', markersize=marker_size)
+            ax.set_title(titles[i], fontsize=title_size, fontweight='bold')
+            ax.set_xlabel("Epoch", fontsize=font_size)
+            ax.set_ylabel("Loss", fontsize=font_size)
+            ax.grid(True, alpha=0.3)
+            ax.tick_params(axis='both', labelsize=tick_size)
+
+        save_fig(fig, "validation_losses")
+
+    elif plot_type == 'compare':
+        if 'val_total_loss' not in history or len(history['val_total_loss']) == 0:
+            print("Validation losses not found in JSON.")
+            return
+
+        fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+        titles = ['Total Loss Comparison', 'DFT Loss Comparison', 'Sparsity Loss Comparison']
+        train_keys = ['total_loss', 'dft_loss', 'sparsity_loss']
+        val_keys = ['val_total_loss', 'val_dft_loss', 'val_sparsity_loss']
+
+        for i, ax in enumerate(axes):
+            ax.plot(epochs, history[train_keys[i]], label='Train', color=train_colors[i], linewidth=line_width, marker='o', markersize=marker_size)
+            ax.plot(epochs, history[val_keys[i]], label='Val', color=val_colors[i], linewidth=line_width, linestyle='--', marker='s', markersize=marker_size)
+            ax.set_title(titles[i], fontsize=title_size, fontweight='bold')
+            ax.set_xlabel("Epoch", fontsize=font_size)
+            ax.set_ylabel("Loss", fontsize=font_size)
+            ax.grid(True, alpha=0.3)
+            ax.legend(fontsize=legend_size)
+            ax.tick_params(axis='both', labelsize=tick_size)
+
+        save_fig(fig, "comparison_losses")
+
+    elif plot_type == 'all':
+        fig = plt.figure(figsize=(12, 8))
+
+        plt.plot(epochs, history['total_loss'], label='Total (Train)', color=train_colors[0], linewidth=line_width, marker='o', markersize=marker_size)
+        plt.plot(epochs, history['dft_loss'], label='DFT (Train)', color=train_colors[1], linewidth=line_width, marker='o', markersize=marker_size)
+        plt.plot(epochs, history['sparsity_loss'], label='Sparsity (Train)', color=train_colors[2], linewidth=line_width, marker='o', markersize=marker_size)
+
+        if 'val_total_loss' in history and len(history['val_total_loss']) > 0:
+            plt.plot(epochs, history['val_total_loss'], label='Total (Val)', color=val_colors[0], linewidth=line_width, linestyle='--', marker='s', markersize=marker_size)
+            plt.plot(epochs, history['val_dft_loss'], label='DFT (Val)', color=val_colors[1], linewidth=line_width, linestyle='--', marker='s', markersize=marker_size)
+            plt.plot(epochs, history['val_sparsity_loss'], label='Sparsity (Val)', color=val_colors[2], linewidth=line_width, linestyle='--', marker='s', markersize=marker_size)
+
+        plt.title("All Loss Metrics", fontsize=title_size, fontweight='bold')
+        plt.xlabel("Epoch", fontsize=font_size)
+        plt.ylabel("Loss", fontsize=font_size)
+        plt.grid(True, alpha=0.3)
+        plt.legend(fontsize=legend_size)
+        plt.tick_params(axis='both', labelsize=tick_size)
+
+        save_fig(fig, "all_losses")
+
+    else:
+        print(f"Invalid plot_type: '{plot_type}'. Choose from ['train', 'val', 'compare', 'all'].")
+
+
+
+
+def plot_comparison_all_models(base_dir, batch_size):
+    print(f"Plotting Experiment: All Models Comparison for {base_dir}")
+
+    # File paths
+    # base_dir = '/data2/AAG/Audio_Declip/exp_ml/heart_sound'
+    os.makedirs(base_dir, exist_ok=True)
+    output_dir = os.path.join(base_dir, f'all_model_plots_{batch_size}')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Input Excel file paths
+    model_files = {
+        'Baseline': f'{base_dir}/evaluation_results_baseline_model_SDR_.xlsx',
+        'Dynamic': f'{base_dir}/evaluation_results_dynamic_model_SDR_.xlsx',
+        'ML1': f'{base_dir}/evaluation_results_ml_model_SDR_without_refinement.xlsx',
+        'ML2': f'{base_dir}/evaluation_results_ml_model_SDR_with_refinement.xlsx'
+    }
+
+    # Load and filter data
+    def load_filtered_data(filepath):
+        df = pd.read_excel(filepath)
+        df['duration'] = df['duration'].astype(float)
+        df['sdr_orig'] = df['sdr_orig'].astype(float)
+        df['sdr_orig_rounded'] = df['sdr_orig'].round(1)
+        return df[df['duration'] == 1.0]
+
+    data = {model: load_filtered_data(path) for model, path in model_files.items()}
+
+    # Visualization parameters
+    colors = {
+        'Baseline': '#1f77b4',
+        'Dynamic': '#ff7f0e',
+        'ML1': '#2ca02c',
+        'ML2': '#d62728'
+    }
+
+    metrics = {
+        'delta_sdr': 'ΔSDR (dB)',
+        'cycles': 'Cycles',
+        'processing_time': 'Processing Time (s)'
+    }
+
+    for metric, ylabel in metrics.items():
+        fig, ax = plt.subplots(figsize=(9, 6))
+        fig.subplots_adjust(top=0.85)
+
+        # Get union of SDR bins
+        all_sdrs = sorted(set().union(*[df['sdr_orig_rounded'].unique() for df in data.values()]))
+
+        x = np.arange(len(all_sdrs))
+        width = 0.18
+
+        for i, (model, df) in enumerate(data.items()):
+            stats = df.groupby('sdr_orig_rounded')[metric].agg(['mean', 'std']).reindex(all_sdrs)
+            ax.bar(
+                x + (i - 1.5) * width, stats['mean'], width,
+                yerr=stats['std'], capsize=4,
+                color=colors[model], edgecolor='black', linewidth=0.7, alpha=0.85,
+                label=model
+            )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(all_sdrs, rotation=45)
+        ax.set_title(f"Heart Dataset: {ylabel} Comparison (1 sec)", fontsize=14, fontweight='bold')
+        ax.set_xlabel("Input SDR (dB)", fontsize=14)
+        ax.set_ylabel(ylabel, fontsize=14)
+        ax.grid(True, linestyle='--', alpha=0.4)
+        ax.legend(fontsize=12)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.90])
+        plot_path = os.path.join(output_dir, f'heart_all_models_{metric}_1sec.png')
+        plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+        print(f"Saved plot to {plot_path}")
+        plt.close(fig)
+
+        # Save statistics
+        summary_data = []
+        for model, df in data.items():
+            summary = df.groupby('sdr_orig_rounded')[metric].agg(['mean', 'std']).reset_index()
+            summary['Model'] = model
+            summary['Duration'] = 1.0
+            summary['Metric'] = metric
+            summary_data.append(summary)
+
+        comparison_df = pd.concat(summary_data, ignore_index=True)
+        csv_path = os.path.join(output_dir, f'heart_all_models_{metric}_1sec.csv')
+        comparison_df.to_csv(csv_path, index=False)
+        print(f"Saved comparison table to {csv_path}")
+
+        # Summary stats print
+        print(f"\n=== {metric.upper()} SUMMARY (SDR-wise Across Models) ===")
+
+        # Collect SDR bins
+        all_sdrs = sorted(set().union(*[df['sdr_orig_rounded'].unique() for df in data.values()]))
+
+        # Prepare a dictionary: {sdr_value: {model: mean_metric}}
+        sdr_summary = {sdr: {} for sdr in all_sdrs}
+        for model, df in data.items():
+            grouped = df.groupby('sdr_orig_rounded')[metric].mean()
+            for sdr_val in all_sdrs:
+                sdr_summary[sdr_val][model] = grouped.get(sdr_val, np.nan)
+
+        # Print header
+        header = "SDR (dB)".ljust(10) + "".join(model.ljust(12) for model in data.keys())
+        print(header)
+        print("-" * len(header))
+
+        # Print row-wise
+        for sdr_val in all_sdrs:
+            row = f"{sdr_val:<10.1f}"
+            for model in data.keys():
+                val = sdr_summary[sdr_val].get(model, np.nan)
+                row += f"{val:<12.3f}" if not np.isnan(val) else f"{'NaN':<12}"
+            print(row)
+

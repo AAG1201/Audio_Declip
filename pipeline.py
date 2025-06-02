@@ -95,13 +95,13 @@ class ComplexDFTUNet(nn.Module):
     
     Parameters:
     -----------
-    dft_size : int, default=1000
+    dft_size : int, options are 512, 1024, 2048
         Size of the DFT data (complex values)
-    mask_size : int, default=500
+    mask_size : int, options are 256, 512, 1024
         Size of the masks - can be different from dft_size
     mask_channels : int, default=3
         Number of mask channels
-    max_sparsity : int, default=500
+    max_sparsity : int, half of dft_size
         Maximum value for sparsity prediction
     """
     def __init__(self, dft_size, mask_size, mask_channels, max_sparsity):
@@ -111,9 +111,18 @@ class ComplexDFTUNet(nn.Module):
         self.max_sparsity = max_sparsity
         
         # Feature dimensions
-        features = 32
+
+        if dft_size <= 512:
+            features = 32
+        elif dft_size <= 1024:
+            features = 48
+        else:  # 2048
+            features = 64
+
         
-        # For asymmetric case (dft_size=1000, mask_size=500):
+        # features = 32
+        
+        # For asymmetric case (dft_size=1024, mask_size=512):
         # We'll need to handle masks separately
         
         # Complex data processing branch
@@ -149,20 +158,20 @@ class ComplexDFTUNet(nn.Module):
         )
         
     def forward(self, x, masks):
-        # For dft_size=1000 and mask_size=500:
-        # Input x is [batch, 2000] (1000 real + 1000 imag values flattened)
-        # Reshape to [batch, 2, 1000]
+        # For dft_size=1024 and mask_size=512:
+        # Input x is [batch, 2048] (1024 real + 1024 imag values flattened)
+        # Reshape to [batch, 2, 1024]
         batch_size = x.size(0)
         x_real = x[:, :self.dft_size].view(batch_size, 1, self.dft_size)
         x_imag = x[:, self.dft_size:].view(batch_size, 1, self.dft_size)
-        x_complex = torch.cat([x_real, x_imag], dim=1)  # [batch, 2, 1000]
+        x_complex = torch.cat([x_real, x_imag], dim=1)  # [batch, 2, 1024]
         
         # Process complex data branch
-        x_complex_features = self.complex_conv(x_complex)  # [batch, features//2, 1000]
+        x_complex_features = self.complex_conv(x_complex)  # [batch, features//2, 1024]
         
-        # Handle masks separately - masks are [batch, 3, 500]
+        # Handle masks separately - masks are [batch, 3, 512]
         # First, process the masks through their own convolutional layer
-        mask_features = self.mask_conv(masks)  # [batch, features//2, 500]
+        mask_features = self.mask_conv(masks)  # [batch, features//2, 512]
         
         # Now we need to upsample mask features to match dft_size
         if self.mask_size != self.dft_size:
@@ -171,29 +180,29 @@ class ComplexDFTUNet(nn.Module):
                 size=self.dft_size,
                 mode='linear', 
                 align_corners=False
-            )  # [batch, features//2, 1000]
+            )  # [batch, features//2, 1024]
         
         # Concatenate the complex features and mask features along channel dimension
-        x = torch.cat([x_complex_features, mask_features], dim=1)  # [batch, features, 1000]
+        x = torch.cat([x_complex_features, mask_features], dim=1)  # [batch, features, 1024]
         
         # Encoder path
-        x1 = self.inc(x)          # [batch, features, 1000]
-        x2 = self.down1(x1)       # [batch, features*2, 500]
-        x3 = self.down2(x2)       # [batch, features*4, 250]
-        x4 = self.down3(x3)       # [batch, features*8, 125]
+        x1 = self.inc(x)          # [batch, features, 1024]
+        x2 = self.down1(x1)       # [batch, features*2, 512]
+        x3 = self.down2(x2)       # [batch, features*4, 256]
+        x4 = self.down3(x3)       # [batch, features*8, 128]
         
         # Middle attention
         x4 = self.mid_attention(x4)
         
         # Decoder path with skip connections
-        x = self.up1(x4, x3)      # [batch, features*4, 250]
-        x = self.up2(x, x2)       # [batch, features*2, 500]
-        x = self.up3(x, x1)       # [batch, features, 1000]
+        x = self.up1(x4, x3)      # [batch, features*4, 256]
+        x = self.up2(x, x2)       # [batch, features*2, 512]
+        x = self.up3(x, x1)       # [batch, features, 1024]
         
         # Output processing
-        dft_out = self.out_conv(x)  # [batch, 2, 1000]
-        # Reshape to [batch, 2000] - 1000 real followed by 1000 imaginary
-        dft_out = dft_out.reshape(batch_size, -1)  # [batch, 2000]
+        dft_out = self.out_conv(x)  # [batch, 2, 1024]
+        # Reshape to [batch, 2048] - 1024 real followed by 1024 imaginary
+        dft_out = dft_out.reshape(batch_size, -1)  # [batch, 2048]
         
         # Sparsity prediction
         sparsity = self.sparsity_head(x)  # [batch, 1]

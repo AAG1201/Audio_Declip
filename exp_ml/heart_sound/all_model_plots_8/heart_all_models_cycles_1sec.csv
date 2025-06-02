@@ -1,0 +1,5 @@
+sdr_orig_rounded,mean,std,Model,Duration,Metric
+7.0,17792.2,552.2962972897787,Baseline,1.0,cycles
+7.0,13512.0,360.55443417048696,Dynamic,1.0,cycles
+7.0,19.0,0.0,ML1,1.0,cycles
+7.0,12561.6,386.1104764183433,ML2,1.0,cycles

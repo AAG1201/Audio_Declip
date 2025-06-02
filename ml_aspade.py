@@ -39,7 +39,7 @@ def ml_aspade(data_clipped: np.ndarray,
     # Dynamic sparsity parameters
     obj_his = np.zeros((3,1))   # Store last 3 objective values
     imp_thres = 1e-4    # Minimum improvement threshold
-    max_sparsity = int(len(zEst) * 0.5)  # Maximum sparsity limit (50% of coefficients)
+    max_sparsity = int(len(zEst) * 0.5)    # Maximum sparsity limit (50% of coefficients)
 
     start_time = time()
     best_k = 0
@@ -184,7 +184,9 @@ def ml_aspade(data_clipped: np.ndarray,
                 'masks': np.concatenate(mask_features),  # Mask features 
             }
         
-        
+        if k > max_sparsity:
+            k = max_sparsity
+
         metrics = {
             'iterations': cnt + 1,
             'final_objective': objVal,
