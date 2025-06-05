@@ -858,7 +858,7 @@ def plot_comparison_all_models(base_dir, batch_size):
         ax.legend(fontsize=12)
 
         plt.tight_layout(rect=[0, 0, 1, 0.90])
-        plot_path = os.path.join(output_dir, f'heart_all_models_{metric}_1sec.png')
+        plot_path = os.path.join(output_dir, f'all_models_{metric}_1sec.png')
         plt.savefig(plot_path, bbox_inches='tight', dpi=300)
         print(f"Saved plot to {plot_path}")
         plt.close(fig)
@@ -873,7 +873,7 @@ def plot_comparison_all_models(base_dir, batch_size):
             summary_data.append(summary)
 
         comparison_df = pd.concat(summary_data, ignore_index=True)
-        csv_path = os.path.join(output_dir, f'heart_all_models_{metric}_1sec.csv')
+        csv_path = os.path.join(output_dir, f'all_models_{metric}_1sec.csv')
         comparison_df.to_csv(csv_path, index=False)
         print(f"Saved comparison table to {csv_path}")
 
@@ -903,3 +903,437 @@ def plot_comparison_all_models(base_dir, batch_size):
                 row += f"{val:<12.3f}" if not np.isnan(val) else f"{'NaN':<12}"
             print(row)
 
+
+
+
+def plot_batch_size_comparison(base_dir, batch_size_1, batch_size_2):
+    """
+    Compare performance between two batch sizes for all models - Optimized for 1x1 plot
+    
+    Args:
+        base_dir: Base directory containing the experiment results
+        batch_size_1: First batch size to compare
+        batch_size_2: Second batch size to compare
+    """
+    print(f"Plotting Batch Size Comparison: {batch_size_1} vs {batch_size_2} for {base_dir}")
+
+    # Create output directory
+    os.makedirs(base_dir, exist_ok=True)
+    output_dir = os.path.join(base_dir, f'batch_comparison_{batch_size_1}_vs_{batch_size_2}')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Model names and their corresponding file patterns
+    models = ['ML1']
+    model_file_patterns = {
+        'ML1': 'evaluation_results_ml_model_SDR_without_refinement.xlsx'
+    }
+
+    def load_batch_data(batch_size):
+        """Load data for a specific batch size from CSV files in all_model_plots_{batch_size} directory"""
+        batch_data = {}
+        batch_dir = os.path.join(base_dir, f'all_model_plots_{batch_size}')  # Match your directory structure
+        
+        # CSV file patterns (generated from your previous function)
+        csv_file_patterns = {
+            'ML1': f'all_models_delta_sdr_1sec.csv'
+        }
+        
+        # Load CSV files for each metric
+        for metric in ['delta_sdr', 'cycles', 'processing_time']:
+            csv_file = os.path.join(batch_dir, f'all_models_{metric}_1sec.csv')
+            if os.path.exists(csv_file):
+                df = pd.read_csv(csv_file)
+                # The CSV has columns: sdr_orig_rounded, mean, std, Model, Duration, Metric
+                for model in models:
+                    model_data = df[df['Model'] == model].copy()
+                    if not model_data.empty:
+                        if model not in batch_data:
+                            batch_data[model] = {}
+                        batch_data[model][metric] = model_data
+            else:
+                print(f"Warning: CSV file not found - {csv_file}")
+        
+        return batch_data
+
+    # Load data for both batch sizes
+    data_batch_1 = load_batch_data(batch_size_1)
+    data_batch_2 = load_batch_data(batch_size_2)
+
+    # Color schemes for batch sizes - more distinct colors for better visibility
+    colors_batch_1 = {
+        'ML1': '#1f77b4'  # Strong blue
+    }
+    
+    colors_batch_2 = {
+        'ML1': '#ff7f0e'  # Strong orange for contrast
+    }
+
+    # Metrics to compare
+    metrics = {
+        'delta_sdr': 'ΔSDR (dB)',
+        'cycles': 'Cycles',
+        'processing_time': 'Processing Time (s)'
+    }
+
+    # Create comparison plots for each metric - optimized for single plot
+    for metric, ylabel in metrics.items():
+        # Larger figure size for single plot with better visibility
+        fig, ax = plt.subplots(1, 1, figsize=(14, 10))
+        
+        # Model (only ML1 in this case)
+        model = 'ML1'
+        
+        # Get data for both batch sizes
+        model_data_1 = data_batch_1.get(model, {})
+        model_data_2 = data_batch_2.get(model, {})
+        
+        metric_data_1 = model_data_1.get(metric, pd.DataFrame())
+        metric_data_2 = model_data_2.get(metric, pd.DataFrame())
+        
+        if metric_data_1.empty and metric_data_2.empty:
+            ax.text(0.5, 0.5, f'No data available for {model}', 
+                   transform=ax.transAxes, ha='center', va='center', fontsize=16)
+            ax.set_title(f'Batch Size Comparison: {batch_size_1} vs {batch_size_2} - {ylabel}', 
+                        fontsize=20, fontweight='bold', pad=20)
+            plt.tight_layout()
+            plot_path = os.path.join(output_dir, f'batch_comparison_{metric}_{batch_size_1}_vs_{batch_size_2}.png')
+            plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+            print(f"Saved batch comparison plot to {plot_path}")
+            plt.close(fig)
+            continue
+        
+        # Get union of SDR bins from both datasets
+        sdr_bins_1 = set(metric_data_1['sdr_orig_rounded'].unique()) if not metric_data_1.empty else set()
+        sdr_bins_2 = set(metric_data_2['sdr_orig_rounded'].unique()) if not metric_data_2.empty else set()
+        all_sdrs = sorted(sdr_bins_1.union(sdr_bins_2))
+        
+        if not all_sdrs:
+            ax.text(0.5, 0.5, f'No SDR data available for {model}', 
+                   transform=ax.transAxes, ha='center', va='center', fontsize=16)
+            ax.set_title(f'Batch Size Comparison: {batch_size_1} vs {batch_size_2} - {ylabel}', 
+                        fontsize=20, fontweight='bold', pad=20)
+            plt.tight_layout()
+            plot_path = os.path.join(output_dir, f'batch_comparison_{metric}_{batch_size_1}_vs_{batch_size_2}.png')
+            plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+            print(f"Saved batch comparison plot to {plot_path}")
+            plt.close(fig)
+            continue
+        
+        x = np.arange(len(all_sdrs))
+        width = 0.35
+        
+        # Prepare data for plotting
+        means_1 = []
+        stds_1 = []
+        means_2 = []
+        stds_2 = []
+        
+        for sdr_val in all_sdrs:
+            # Batch 1 data
+            if not metric_data_1.empty:
+                row_1 = metric_data_1[metric_data_1['sdr_orig_rounded'] == sdr_val]
+                if not row_1.empty:
+                    means_1.append(row_1['mean'].iloc[0])
+                    stds_1.append(row_1['std'].iloc[0])
+                else:
+                    means_1.append(np.nan)
+                    stds_1.append(np.nan)
+            else:
+                means_1.append(np.nan)
+                stds_1.append(np.nan)
+            
+            # Batch 2 data
+            if not metric_data_2.empty:
+                row_2 = metric_data_2[metric_data_2['sdr_orig_rounded'] == sdr_val]
+                if not row_2.empty:
+                    means_2.append(row_2['mean'].iloc[0])
+                    stds_2.append(row_2['std'].iloc[0])
+                else:
+                    means_2.append(np.nan)
+                    stds_2.append(np.nan)
+            else:
+                means_2.append(np.nan)
+                stds_2.append(np.nan)
+        
+        # Plot bars with error bars
+        valid_1 = ~np.isnan(means_1)
+        valid_2 = ~np.isnan(means_2)
+        
+        if np.any(valid_1):
+            ax.bar(x[valid_1] - width/2, np.array(means_1)[valid_1], width,
+                  yerr=np.array(stds_1)[valid_1], capsize=5,
+                  color=colors_batch_1[model], edgecolor='black', linewidth=1.0, alpha=0.8,
+                  label=f'Batch Size {batch_size_1}')
+        
+        if np.any(valid_2):
+            ax.bar(x[valid_2] + width/2, np.array(means_2)[valid_2], width,
+                  yerr=np.array(stds_2)[valid_2], capsize=5,
+                  color=colors_batch_2[model], edgecolor='black', linewidth=1.0, alpha=0.8,
+                  label=f'Batch Size {batch_size_2}')
+        
+        # Enhanced formatting for single plot
+        ax.set_xticks(x)
+        ax.set_xticklabels([f'{sdr:.1f}' for sdr in all_sdrs], rotation=45, fontsize=14)
+        
+        # Main title with larger font
+        ax.set_title(f'Batch Size Comparison: {batch_size_1} vs {batch_size_2} - {ylabel}', 
+                    fontsize=20, fontweight='bold', pad=20)
+        
+        # Axis labels with larger fonts
+        ax.set_xlabel('Input SDR (dB)', fontsize=16, fontweight='bold')
+        ax.set_ylabel(ylabel, fontsize=16, fontweight='bold')
+        
+        # Enhanced grid and legend
+        ax.grid(True, linestyle='--', alpha=0.3, linewidth=1)
+        legend = ax.legend(fontsize=14, loc='best', frameon=True, 
+                          fancybox=True, shadow=True, framealpha=0.9)
+        legend.get_frame().set_facecolor('white')
+        legend.get_frame().set_edgecolor('gray')
+        
+        # Tick parameters for better visibility
+        ax.tick_params(axis='both', which='major', labelsize=12, width=1, length=6)
+        ax.tick_params(axis='both', which='minor', width=0.5, length=3)
+        
+        # Adjust layout with more padding
+        plt.tight_layout(pad=2.0)
+        
+        # Save plot with higher quality
+        plot_path = os.path.join(output_dir, f'batch_comparison_{metric}_{batch_size_1}_vs_{batch_size_2}.png')
+        plt.savefig(plot_path, bbox_inches='tight', dpi=300, facecolor='white', edgecolor='none')
+        print(f"Saved batch comparison plot to {plot_path}")
+        plt.close(fig)
+
+    # Create comprehensive comparison CSV
+    comparison_data = []
+    
+    for model in models:
+        model_data_1 = data_batch_1.get(model, {})
+        model_data_2 = data_batch_2.get(model, {})
+        
+        for metric in metrics.keys():
+            metric_data_1 = model_data_1.get(metric, pd.DataFrame())
+            metric_data_2 = model_data_2.get(metric, pd.DataFrame())
+            
+            # Get all SDR bins for this model and metric
+            sdr_bins_1 = set(metric_data_1['sdr_orig_rounded'].unique()) if not metric_data_1.empty else set()
+            sdr_bins_2 = set(metric_data_2['sdr_orig_rounded'].unique()) if not metric_data_2.empty else set()
+            all_sdrs = sorted(sdr_bins_1.union(sdr_bins_2))
+            
+            for sdr_val in all_sdrs:
+                row_data = {
+                    'Model': model,
+                    'SDR_Input': sdr_val,
+                    'Metric': metric
+                }
+                
+                # Batch 1 statistics
+                if not metric_data_1.empty:
+                    row_1 = metric_data_1[metric_data_1['sdr_orig_rounded'] == sdr_val]
+                    if not row_1.empty:
+                        row_data[f'Batch_{batch_size_1}_Mean'] = row_1['mean'].iloc[0]
+                        row_data[f'Batch_{batch_size_1}_Std'] = row_1['std'].iloc[0]
+                        row_data[f'Batch_{batch_size_1}_Count'] = 1  # From aggregated data
+                    else:
+                        row_data[f'Batch_{batch_size_1}_Mean'] = np.nan
+                        row_data[f'Batch_{batch_size_1}_Std'] = np.nan
+                        row_data[f'Batch_{batch_size_1}_Count'] = 0
+                else:
+                    row_data[f'Batch_{batch_size_1}_Mean'] = np.nan
+                    row_data[f'Batch_{batch_size_1}_Std'] = np.nan
+                    row_data[f'Batch_{batch_size_1}_Count'] = 0
+                
+                # Batch 2 statistics
+                if not metric_data_2.empty:
+                    row_2 = metric_data_2[metric_data_2['sdr_orig_rounded'] == sdr_val]
+                    if not row_2.empty:
+                        row_data[f'Batch_{batch_size_2}_Mean'] = row_2['mean'].iloc[0]
+                        row_data[f'Batch_{batch_size_2}_Std'] = row_2['std'].iloc[0]
+                        row_data[f'Batch_{batch_size_2}_Count'] = 1  # From aggregated data
+                    else:
+                        row_data[f'Batch_{batch_size_2}_Mean'] = np.nan
+                        row_data[f'Batch_{batch_size_2}_Std'] = np.nan
+                        row_data[f'Batch_{batch_size_2}_Count'] = 0
+                else:
+                    row_data[f'Batch_{batch_size_2}_Mean'] = np.nan
+                    row_data[f'Batch_{batch_size_2}_Std'] = np.nan
+                    row_data[f'Batch_{batch_size_2}_Count'] = 0
+                
+                # Calculate difference and percentage change
+                mean1 = row_data[f'Batch_{batch_size_1}_Mean']
+                mean2 = row_data[f'Batch_{batch_size_2}_Mean']
+                
+                if not (np.isnan(mean1) or np.isnan(mean2)):
+                    row_data['Difference'] = mean2 - mean1
+                    if mean1 != 0:
+                        row_data['Percentage_Change'] = ((mean2 - mean1) / abs(mean1)) * 100
+                    else:
+                        row_data['Percentage_Change'] = np.nan
+                else:
+                    row_data['Difference'] = np.nan
+                    row_data['Percentage_Change'] = np.nan
+                
+                comparison_data.append(row_data)
+    
+    # Save comprehensive comparison CSV
+    comparison_df = pd.DataFrame(comparison_data)
+    csv_path = os.path.join(output_dir, f'batch_comparison_detailed_{batch_size_1}_vs_{batch_size_2}.csv')
+    comparison_df.to_csv(csv_path, index=False)
+    print(f"Saved detailed comparison CSV to {csv_path}")
+    
+    # Create summary statistics
+    print(f"\n=== BATCH SIZE COMPARISON SUMMARY: {batch_size_1} vs {batch_size_2} ===")
+    
+    for metric in metrics.keys():
+        print(f"\n--- {metric.upper()} ---")
+        metric_data = comparison_df[comparison_df['Metric'] == metric]
+        
+        for model in models:
+            model_data = metric_data[metric_data['Model'] == model]
+            if not model_data.empty:
+                avg_diff = model_data['Difference'].mean()
+                avg_pct_change = model_data['Percentage_Change'].mean()
+                print(f"{model:>10}: Avg Diff = {avg_diff:>8.3f}, Avg % Change = {avg_pct_change:>8.1f}%")
+    
+    # Create a summary table for easier interpretation
+    summary_data = []
+    for metric in metrics.keys():
+        for model in models:
+            model_metric_data = comparison_df[
+                (comparison_df['Model'] == model) & 
+                (comparison_df['Metric'] == metric)
+            ]
+            
+            if not model_metric_data.empty:
+                summary_row = {
+                    'Metric': metric,
+                    'Model': model,
+                    'Avg_Difference': model_metric_data['Difference'].mean(),
+                    'Avg_Percentage_Change': model_metric_data['Percentage_Change'].mean(),
+                    'Max_Difference': model_metric_data['Difference'].max(),
+                    'Min_Difference': model_metric_data['Difference'].min(),
+                    'Std_Difference': model_metric_data['Difference'].std()
+                }
+                summary_data.append(summary_row)
+    
+    summary_df = pd.DataFrame(summary_data)
+    summary_csv_path = os.path.join(output_dir, f'batch_comparison_summary_{batch_size_1}_vs_{batch_size_2}.csv')
+    summary_df.to_csv(summary_csv_path, index=False)
+    print(f"Saved summary comparison CSV to {summary_csv_path}")
+    
+    return output_dir
+
+
+def plot_comparison_all_models_speech(base_dir, batch_size, factor):
+    print(f"Plotting Experiment: All Models Comparison for {base_dir}")
+
+    # File paths
+    # base_dir = '/data2/AAG/Audio_Declip/exp_ml/heart_sound'
+    os.makedirs(base_dir, exist_ok=True)
+    output_dir = os.path.join(base_dir, f'all_model_plots_{batch_size}_{factor}')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Input Excel file paths
+    model_files = {
+        'Baseline': f'{base_dir}/evaluation_results_baseline_model_SDR_.xlsx',
+        'Dynamic': f'{base_dir}/evaluation_results_dynamic_model_SDR_.xlsx',
+        'ML1': f'{base_dir}/evaluation_results_ml_model_SDR_without_refinement.xlsx',
+        'ML2': f'{base_dir}/evaluation_results_ml_model_SDR_with_refinement.xlsx'
+    }
+
+    # Load and filter data
+    def load_filtered_data(filepath):
+        df = pd.read_excel(filepath)
+        df['duration'] = df['duration'].astype(float)
+        df['sdr_orig'] = df['sdr_orig'].astype(float)
+        df['sdr_orig_rounded'] = df['sdr_orig'].round(1)
+        return df[df['duration'] == 1.0]
+
+    data = {model: load_filtered_data(path) for model, path in model_files.items()}
+
+    # Visualization parameters
+    colors = {
+        'Baseline': '#1f77b4',
+        'Dynamic': '#ff7f0e',
+        'ML1': '#2ca02c',
+        'ML2': '#d62728'
+    }
+
+    metrics = {
+        'delta_sdr': 'ΔSDR (dB)',
+        'cycles': 'Cycles',
+        'processing_time': 'Processing Time (s)',
+        'delta_pesq': 'ΔPESQ'
+    }
+
+    for metric, ylabel in metrics.items():
+        fig, ax = plt.subplots(figsize=(9, 6))
+        fig.subplots_adjust(top=0.85)
+
+        # Get union of SDR bins
+        all_sdrs = sorted(set().union(*[df['sdr_orig_rounded'].unique() for df in data.values()]))
+
+        x = np.arange(len(all_sdrs))
+        width = 0.18
+
+        for i, (model, df) in enumerate(data.items()):
+            stats = df.groupby('sdr_orig_rounded')[metric].agg(['mean', 'std']).reindex(all_sdrs)
+            ax.bar(
+                x + (i - 1.5) * width, stats['mean'], width,
+                yerr=stats['std'], capsize=4,
+                color=colors[model], edgecolor='black', linewidth=0.7, alpha=0.85,
+                label=model
+            )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(all_sdrs, rotation=45)
+        ax.set_title(f"Heart Dataset: {ylabel} Comparison (1 sec)", fontsize=14, fontweight='bold')
+        ax.set_xlabel("Input SDR (dB)", fontsize=14)
+        ax.set_ylabel(ylabel, fontsize=14)
+        ax.grid(True, linestyle='--', alpha=0.4)
+        ax.legend(fontsize=12)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.90])
+        plot_path = os.path.join(output_dir, f'all_models_{metric}_1sec.png')
+        plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+        print(f"Saved plot to {plot_path}")
+        plt.close(fig)
+
+        # Save statistics
+        summary_data = []
+        for model, df in data.items():
+            summary = df.groupby('sdr_orig_rounded')[metric].agg(['mean', 'std']).reset_index()
+            summary['Model'] = model
+            summary['Duration'] = 1.0
+            summary['Metric'] = metric
+            summary_data.append(summary)
+
+        comparison_df = pd.concat(summary_data, ignore_index=True)
+        csv_path = os.path.join(output_dir, f'all_models_{metric}_1sec.csv')
+        comparison_df.to_csv(csv_path, index=False)
+        print(f"Saved comparison table to {csv_path}")
+
+        # Summary stats print
+        print(f"\n=== {metric.upper()} SUMMARY (SDR-wise Across Models) ===")
+
+        # Collect SDR bins
+        all_sdrs = sorted(set().union(*[df['sdr_orig_rounded'].unique() for df in data.values()]))
+
+        # Prepare a dictionary: {sdr_value: {model: mean_metric}}
+        sdr_summary = {sdr: {} for sdr in all_sdrs}
+        for model, df in data.items():
+            grouped = df.groupby('sdr_orig_rounded')[metric].mean()
+            for sdr_val in all_sdrs:
+                sdr_summary[sdr_val][model] = grouped.get(sdr_val, np.nan)
+
+        # Print header
+        header = "SDR (dB)".ljust(10) + "".join(model.ljust(12) for model in data.keys())
+        print(header)
+        print("-" * len(header))
+
+        # Print row-wise
+        for sdr_val in all_sdrs:
+            row = f"{sdr_val:<10.1f}"
+            for model in data.keys():
+                val = sdr_summary[sdr_val].get(model, np.nan)
+                row += f"{val:<12.3f}" if not np.isnan(val) else f"{'NaN':<12}"
+            print(row)
