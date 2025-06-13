@@ -1,0 +1,9 @@
+metric,model,sdr_orig,speedup_ratio
+cycles_speedup,Dynamic,1.0000,1.4128
+cycles_speedup,Dynamic,3.0000,1.4361
+cycles_speedup,Dynamic,5.0000,1.4483
+cycles_speedup,Dynamic,7.0000,1.4561
+cycles_speedup,ML2,1.0000,2.2058
+cycles_speedup,ML2,3.0000,2.2404
+cycles_speedup,ML2,5.0000,2.2638
+cycles_speedup,ML2,7.0000,2.2811

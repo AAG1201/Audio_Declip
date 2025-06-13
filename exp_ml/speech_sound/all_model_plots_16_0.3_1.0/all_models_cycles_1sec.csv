@@ -1,0 +1,17 @@
+sdr_orig_rounded,mean,std,Model,Duration,Metric
+1.0,73942.25,18713.65066321205,Baseline,1.0,cycles
+3.0,92060.85,18461.0639719469,Baseline,1.0,cycles
+5.0,101203.45,16831.312537476406,Baseline,1.0,cycles
+7.0,106593.35,16023.465967383423,Baseline,1.0,cycles
+1.0,52042.35,12034.020696932945,Dynamic,1.0,cycles
+3.0,63773.35,11451.908846977158,Dynamic,1.0,cycles
+5.0,69673.85,10320.74435950288,Dynamic,1.0,cycles
+7.0,72983.7,9851.030392806633,Dynamic,1.0,cycles
+1.0,66.0,0.0,U-Net(FAA),1.0,cycles
+3.0,66.0,0.0,U-Net(FAA),1.0,cycles
+5.0,66.0,0.0,U-Net(FAA),1.0,cycles
+7.0,66.0,0.0,U-Net(FAA),1.0,cycles
+1.0,124681.65,19019.335195850177,NeuraDyne,1.0,cycles
+3.0,160261.15,20463.112281358222,NeuraDyne,1.0,cycles
+5.0,176051.7,19009.864713657986,NeuraDyne,1.0,cycles
+7.0,184771.05,17592.713804224986,NeuraDyne,1.0,cycles

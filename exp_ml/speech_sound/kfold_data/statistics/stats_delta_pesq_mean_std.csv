@@ -1,0 +1,13 @@
+metric,model,sdr_orig,mean,std
+delta_pesq,Baseline,1.000000,0.271471,0.032213
+delta_pesq,Baseline,3.000000,0.995810,0.084600
+delta_pesq,Baseline,5.000000,1.569098,0.082880
+delta_pesq,Baseline,7.000000,1.825374,0.107864
+delta_pesq,Dynamic,1.000000,0.267044,0.028183
+delta_pesq,Dynamic,3.000000,1.008052,0.065432
+delta_pesq,Dynamic,5.000000,1.566275,0.077238
+delta_pesq,Dynamic,7.000000,1.831184,0.099941
+delta_pesq,ML2,1.000000,0.311098,0.024042
+delta_pesq,ML2,3.000000,1.049292,0.050846
+delta_pesq,ML2,5.000000,1.594780,0.089765
+delta_pesq,ML2,7.000000,1.812791,0.094896

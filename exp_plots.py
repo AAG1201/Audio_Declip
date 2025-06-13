@@ -5,7 +5,7 @@ import os
 import seaborn as sns
 import scipy.io as sio
 import json
-
+import glob
 
 # Set the output directory for saving plots
 output_dir = "/data2/AAG/Audio_Declip/saved_plots"
@@ -482,6 +482,7 @@ def block_analysis(u, idx):
             ax_obj.grid(True, linestyle='--', alpha=0.3)
             ax_obj.spines['top'].set_visible(False)
             ax_obj.spines['right'].set_visible(False)
+            ax_obj.set_title(f"{sound_label} Sound", fontsize=15, pad=12)
             
             # Plot k values with reduced line thickness
             ax_k = axes_k[i]
@@ -508,6 +509,7 @@ def block_analysis(u, idx):
             ax_k.grid(True, linestyle='--', alpha=0.3)
             ax_k.spines['top'].set_visible(False)
             ax_k.spines['right'].set_visible(False)
+            ax_k.set_title(f"{sound_label} Sound", fontsize=15, pad=12)
             
         except Exception as e:
             print(f"Error processing {sound_type}: {str(e)}")
@@ -851,7 +853,7 @@ def plot_comparison_all_models(base_dir, batch_size):
 
         ax.set_xticks(x)
         ax.set_xticklabels(all_sdrs, rotation=45)
-        ax.set_title(f"Heart Dataset: {ylabel} Comparison (1 sec)", fontsize=14, fontweight='bold')
+        # ax.set_title(f"Heart Dataset: {ylabel} Comparison (1 sec)", fontsize=14, fontweight='bold')
         ax.set_xlabel("Input SDR (dB)", fontsize=14)
         ax.set_ylabel(ylabel, fontsize=14)
         ax.grid(True, linestyle='--', alpha=0.4)
@@ -1223,21 +1225,21 @@ def plot_batch_size_comparison(base_dir, batch_size_1, batch_size_2):
     return output_dir
 
 
-def plot_comparison_all_models_speech(base_dir, batch_size, factor):
+def plot_comparison_all_models_speech(base_dir, batch_size, factor, duration):
     print(f"Plotting Experiment: All Models Comparison for {base_dir}")
 
     # File paths
     # base_dir = '/data2/AAG/Audio_Declip/exp_ml/heart_sound'
     os.makedirs(base_dir, exist_ok=True)
-    output_dir = os.path.join(base_dir, f'all_model_plots_{batch_size}_{factor}')
+    output_dir = os.path.join(base_dir, f'all_model_plots_{batch_size}_{factor}_{duration}')
     os.makedirs(output_dir, exist_ok=True)
 
     # Input Excel file paths
     model_files = {
         'Baseline': f'{base_dir}/evaluation_results_baseline_model_SDR_.xlsx',
         'Dynamic': f'{base_dir}/evaluation_results_dynamic_model_SDR_.xlsx',
-        'ML1': f'{base_dir}/evaluation_results_ml_model_SDR_without_refinement.xlsx',
-        'ML2': f'{base_dir}/evaluation_results_ml_model_SDR_with_refinement.xlsx'
+        'U-Net(FAA)': f'{base_dir}/evaluation_results_ml_model_SDR_without_refinement.xlsx',
+        'NeuraDyne': f'{base_dir}/evaluation_results_ml_model_SDR_with_refinement.xlsx'
     }
 
     # Load and filter data
@@ -1246,7 +1248,7 @@ def plot_comparison_all_models_speech(base_dir, batch_size, factor):
         df['duration'] = df['duration'].astype(float)
         df['sdr_orig'] = df['sdr_orig'].astype(float)
         df['sdr_orig_rounded'] = df['sdr_orig'].round(1)
-        return df[df['duration'] == 1.0]
+        return df[df['duration'] == duration]
 
     data = {model: load_filtered_data(path) for model, path in model_files.items()}
 
@@ -1254,8 +1256,8 @@ def plot_comparison_all_models_speech(base_dir, batch_size, factor):
     colors = {
         'Baseline': '#1f77b4',
         'Dynamic': '#ff7f0e',
-        'ML1': '#2ca02c',
-        'ML2': '#d62728'
+        'U-Net(FAA)': '#2ca02c',
+        'NeuraDyne': '#d62728'
     }
 
     metrics = {
@@ -1286,7 +1288,7 @@ def plot_comparison_all_models_speech(base_dir, batch_size, factor):
 
         ax.set_xticks(x)
         ax.set_xticklabels(all_sdrs, rotation=45)
-        ax.set_title(f"Heart Dataset: {ylabel} Comparison (1 sec)", fontsize=14, fontweight='bold')
+        # ax.set_title(f"Speech Dataset: {ylabel} Comparison (1 sec)", fontsize=14, fontweight='bold')
         ax.set_xlabel("Input SDR (dB)", fontsize=14)
         ax.set_ylabel(ylabel, fontsize=14)
         ax.grid(True, linestyle='--', alpha=0.4)
@@ -1303,7 +1305,7 @@ def plot_comparison_all_models_speech(base_dir, batch_size, factor):
         for model, df in data.items():
             summary = df.groupby('sdr_orig_rounded')[metric].agg(['mean', 'std']).reset_index()
             summary['Model'] = model
-            summary['Duration'] = 1.0
+            summary['Duration'] = duration
             summary['Metric'] = metric
             summary_data.append(summary)
 
@@ -1337,3 +1339,901 @@ def plot_comparison_all_models_speech(base_dir, batch_size, factor):
                 val = sdr_summary[sdr_val].get(model, np.nan)
                 row += f"{val:<12.3f}" if not np.isnan(val) else f"{'NaN':<12}"
             print(row)
+
+
+
+def plot_comparison_all_models_cross(base_dir, batch_size):
+    print(f"Plotting Experiment: All Models Comparison for {base_dir}")
+
+    os.makedirs(base_dir, exist_ok=True)
+    output_dir = os.path.join(base_dir,'cross_model', f'all_model_plots_{batch_size}')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # model_files = {
+    #     'Baseline': os.path.join(base_dir, 'evaluation_results_baseline_model_SDR_.xlsx'),
+    #     'Dynamic': os.path.join(base_dir, 'evaluation_results_dynamic_model_SDR_.xlsx'),
+    #     'ML1': os.path.join(base_dir, 'evaluation_results_ml_model_SDR_without_refinement.xlsx'),
+    #     'ML2': os.path.join(base_dir, 'evaluation_results_ml_model_SDR_with_refinement.xlsx'),
+    #     'ML1_Cross': os.path.join(base_dir,'cross_model', 'evaluation_results_ml_model_SDR_without_refinement.xlsx'),
+    #     'ML2_Cross': os.path.join(base_dir, 'cross_model', 'evaluation_results_ml_model_SDR_with_refinement.xlsx')
+    # }
+
+    model_files = {
+        'Baseline': os.path.join(base_dir, 'evaluation_results_baseline_model_SDR_.xlsx'),
+        'Dynamic': os.path.join(base_dir, 'evaluation_results_dynamic_model_SDR_.xlsx'),
+        'ML2': os.path.join(base_dir, 'evaluation_results_ml_model_SDR_with_refinement.xlsx'),
+        'ML2_Cross': os.path.join(base_dir, 'cross_model', 'evaluation_results_ml_model_SDR_with_refinement.xlsx')
+    }
+
+    # Load and filter data
+    def load_filtered_data(filepath):
+        if not os.path.exists(filepath):
+            print(f"File not found: {filepath}")
+            return None
+        df = pd.read_excel(filepath)
+        if 'duration' not in df or 'sdr_orig' not in df:
+            print(f"Required columns missing in {filepath}")
+            return None
+        df['duration'] = df['duration'].astype(float)
+        df['sdr_orig'] = df['sdr_orig'].astype(float)
+        df['sdr_orig_rounded'] = df['sdr_orig'].round(1)
+        return df[df['duration'] == 1.0]
+
+    data = {}
+    for model, path in model_files.items():
+        df = load_filtered_data(path)
+        if df is not None:
+            data[model] = df
+
+    if not data:
+        print("No valid data loaded.")
+        return
+
+    # Visualization parameters
+    colors = {
+        'Baseline': '#1f77b4',
+        'Dynamic': '#ff7f0e',
+        'ML2': '#d62728',
+        'ML2_Cross': '#8c564b'
+    }
+
+    # colors = {
+    #     'Baseline': '#1f77b4',
+    #     'Dynamic': '#ff7f0e',
+    #     'ML1': '#2ca02c',
+    #     'ML2': '#d62728',
+    #     'ML1_Cross': '#9467bd',
+    #     'ML2_Cross': '#8c564b'
+    # }
+
+    metrics = {
+        'delta_sdr': 'ΔSDR (dB)',
+        'cycles': 'Cycles',
+        'processing_time': 'Processing Time (s)'
+    }
+
+    for metric, ylabel in metrics.items():
+        fig, ax = plt.subplots(figsize=(9, 6))
+        fig.subplots_adjust(top=0.85)
+
+        all_sdrs = sorted(set().union(*[df['sdr_orig_rounded'].unique() for df in data.values()]))
+        x = np.arange(len(all_sdrs))
+        n_models = len(data)
+        width = 0.8 / n_models  # dynamically adjust bar width
+
+        for i, (model, df) in enumerate(data.items()):
+            if metric not in df.columns:
+                print(f"Metric '{metric}' missing in model '{model}'. Skipping.")
+                continue
+            stats = df.groupby('sdr_orig_rounded')[metric].agg(['mean', 'std']).reindex(all_sdrs)
+            offset = (i - n_models / 2) * width + width / 2
+            ax.bar(
+                x + offset, stats['mean'], width,
+                yerr=stats['std'], capsize=4,
+                color=colors.get(model, '#999999'), edgecolor='black', linewidth=0.7, alpha=0.85,
+                label=model
+            )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(all_sdrs, rotation=45)
+        # ax.set_title(f"Heart Dataset: {ylabel} Comparison (1 sec)", fontsize=14, fontweight='bold')
+        ax.set_xlabel("Input SDR (dB)", fontsize=14)
+        ax.set_ylabel(ylabel, fontsize=14)
+        ax.grid(True, linestyle='--', alpha=0.4)
+        ax.legend(fontsize=12)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.90])
+        plot_path = os.path.join(output_dir, f'all_models_{metric}_1sec.png')
+        plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+        print(f"Saved plot to {plot_path}")
+        plt.close(fig)
+
+        # Save summary CSV
+        summary_data = []
+        for model, df in data.items():
+            if metric not in df.columns:
+                continue
+            summary = df.groupby('sdr_orig_rounded')[metric].agg(['mean', 'std']).reset_index()
+            summary['Model'] = model
+            summary['Duration'] = 1.0
+            summary['Metric'] = metric
+            summary_data.append(summary)
+
+        comparison_df = pd.concat(summary_data, ignore_index=True)
+        csv_path = os.path.join(output_dir, f'all_models_{metric}_1sec.csv')
+        comparison_df.to_csv(csv_path, index=False)
+        print(f"Saved comparison table to {csv_path}")
+
+        # Print summary table
+        print(f"\n=== {metric.upper()} SUMMARY (SDR-wise Across Models) ===")
+        sdr_summary = {sdr: {} for sdr in all_sdrs}
+        for model, df in data.items():
+            if metric not in df.columns:
+                continue
+            grouped = df.groupby('sdr_orig_rounded')[metric].mean()
+            for sdr_val in all_sdrs:
+                sdr_summary[sdr_val][model] = grouped.get(sdr_val, np.nan)
+
+        header = "SDR (dB)".ljust(10) + "".join(model.ljust(12) for model in data.keys())
+        print(header)
+        print("-" * len(header))
+        for sdr_val in all_sdrs:
+            row = f"{sdr_val:<10.1f}"
+            for model in data.keys():
+                val = sdr_summary[sdr_val].get(model, np.nan)
+                row += f"{val:<12.3f}" if not np.isnan(val) else f"{'NaN':<12}"
+            print(row)
+
+
+
+
+
+
+######################################## Fold Plottings ########################################
+
+
+
+
+def load_and_process_data(MODELS, FOLDS, BASE_DIR, DURATION, METRICS):
+    """Load and process data from all folds and models."""
+    results = {metric: {model: [] for model in MODELS} for metric in METRICS}
+    
+    for fold in FOLDS:
+        fold_dir = os.path.join(BASE_DIR, fold, "all_model_plots_16_0.3")
+        
+        for metric in METRICS:
+            file_path = os.path.join(fold_dir, f"all_models_{metric}_1sec.csv")
+            try:
+                if not os.path.exists(file_path):
+                    print(f"Warning: File not found: {file_path}")
+                    continue
+                    
+                df = pd.read_csv(file_path)
+                
+                # Check if Duration column exists and filter
+                if 'Duration' in df.columns:
+                    df = df[df['Duration'] == float(DURATION)]
+                else:
+                    print(f"Warning: Duration column not found in {file_path}")
+                
+                df['fold'] = fold
+                
+                for model in MODELS:
+                    if 'Model' not in df.columns:
+                        print(f"Warning: Model column not found in {file_path}")
+                        continue
+                        
+                    model_df = df[df['Model'] == model].copy()
+                    
+                    if model_df.empty:
+                        print(f"Warning: No data found for model {model} in {file_path}")
+                        continue
+                    
+                    # Rename column if exists
+                    if 'sdr_orig_rounded' in model_df.columns:
+                        model_df.rename(columns={'sdr_orig_rounded': 'sdr_orig'}, inplace=True)
+                    
+                    # Check if required columns exist
+                    required_cols = ['sdr_orig', 'mean']
+                    missing_cols = [col for col in required_cols if col not in model_df.columns]
+                    if missing_cols:
+                        print(f"Warning: Missing columns {missing_cols} in {file_path} for model {model}")
+                        continue
+                    
+                    results[metric][model].append(model_df)
+                    
+            except Exception as e:
+                print(f"Error loading {file_path}: {str(e)}")
+                continue
+
+    # Combine folds for each metric/model
+    combined = {}
+    for metric in METRICS:
+        combined[metric] = {}
+        for model in MODELS:
+            if results[metric][model]:
+                combined[metric][model] = pd.concat(results[metric][model], ignore_index=True)
+            else:
+                print(f"Warning: No data available for metric {metric}, model {model}")
+    
+    return combined
+
+def compute_stats(df):
+    """Compute mean and std for each sdr_orig level."""
+    if df.empty or 'sdr_orig' not in df.columns or 'mean' not in df.columns:
+        return pd.DataFrame(columns=['sdr_orig', 'mean', 'std'])
+    
+    return df.groupby('sdr_orig')['mean'].agg(['mean', 'std']).reset_index()
+
+def compute_relative_improvement(combined, METRICS, MODELS):
+    """Compute relative improvement over baseline for each metric."""
+    relative_improvement = {metric: {} for metric in METRICS if metric != 'cycles'}
+    
+    for metric in relative_improvement.keys():
+        if metric not in combined or 'Baseline' not in combined[metric]:
+            print(f"Warning: Baseline data not available for metric {metric}")
+            continue
+            
+        baseline_stats = compute_stats(combined[metric]['Baseline'])
+        if baseline_stats.empty:
+            print(f"Warning: Empty baseline stats for metric {metric}")
+            continue
+            
+        baseline_stats = baseline_stats.set_index('sdr_orig')
+        
+        for model in MODELS:
+            if model == 'Baseline' or model not in combined[metric]:
+                continue
+            
+            model_stats = compute_stats(combined[metric][model])
+            if model_stats.empty:
+                print(f"Warning: Empty model stats for metric {metric}, model {model}")
+                continue
+                
+            model_stats = model_stats.set_index('sdr_orig')
+            
+            # Align indices
+            joined = model_stats.join(baseline_stats, lsuffix='_model', rsuffix='_baseline', how='inner')
+            
+            if joined.empty:
+                print(f"Warning: No matching SDR levels between {model} and Baseline for metric {metric}")
+                continue
+            
+            # Avoid division by zero
+            valid_baseline = joined['mean_baseline'] != 0
+            if not valid_baseline.any():
+                print(f"Warning: All baseline values are zero for metric {metric}")
+                continue
+            
+            # Percentage improvement = (model - baseline)/baseline * 100
+            rel_impr = pd.Series(index=joined.index, dtype=float)
+            rel_impr[valid_baseline] = ((joined.loc[valid_baseline, 'mean_model'] - 
+                                       joined.loc[valid_baseline, 'mean_baseline']) / 
+                                      joined.loc[valid_baseline, 'mean_baseline']) * 100
+            
+            relative_improvement[metric][model] = rel_impr.reset_index()
+    
+    return relative_improvement
+
+def compute_speedup_ratio(combined, MODELS):
+    """Compute speedup ratio (baseline_cycles / model_cycles)."""
+    speedup = {}
+    if 'cycles' not in combined or 'Baseline' not in combined['cycles']:
+        print("Warning: Cycles data not available for speedup computation")
+        return speedup
+    
+    baseline_stats = compute_stats(combined['cycles']['Baseline'])
+    if baseline_stats.empty:
+        print("Warning: Empty baseline stats for cycles")
+        return speedup
+        
+    baseline_stats = baseline_stats.set_index('sdr_orig')
+    
+    for model in MODELS:
+        if model == 'Baseline' or model not in combined['cycles']:
+            continue
+            
+        model_stats = compute_stats(combined['cycles'][model])
+        if model_stats.empty:
+            continue
+            
+        model_stats = model_stats.set_index('sdr_orig')
+        joined = model_stats.join(baseline_stats, lsuffix='_model', rsuffix='_baseline', how='inner')
+        
+        if joined.empty:
+            continue
+        
+        # Avoid division by zero
+        valid_model = joined['mean_model'] != 0
+        if not valid_model.any():
+            continue
+        
+        speedup_ratio = pd.Series(index=joined.index, dtype=float)
+        speedup_ratio[valid_model] = (joined.loc[valid_model, 'mean_baseline'] / 
+                                     joined.loc[valid_model, 'mean_model'])
+        
+        speedup[model] = speedup_ratio.reset_index()
+    
+    return speedup
+
+def compute_composite_score(combined, MODELS, W_SDR, W_PESQ, W_CYCLES):
+    """
+    Composite = W_SDR * normalized_delta_sdr + W_PESQ * normalized_delta_pesq + W_CYCLES * normalized_cycles_inv
+    Normalization is min-max over all models and sdr_orig levels for each metric.
+    """
+    # Check if all required metrics are available
+    required_metrics = ['delta_sdr', 'delta_pesq', 'cycles']
+    missing_metrics = [m for m in required_metrics if m not in combined or not combined[m]]
+    if missing_metrics:
+        print(f"Warning: Missing metrics for composite score: {missing_metrics}")
+        return pd.DataFrame()
+    
+    # Get common sdr_orig levels across all metrics and models
+    all_sdr_levels = set()
+    for metric in required_metrics:
+        for model in MODELS:
+            if model in combined[metric] and not combined[metric][model].empty:
+                all_sdr_levels.update(combined[metric][model]['sdr_orig'].unique())
+    
+    if not all_sdr_levels:
+        print("Warning: No common SDR levels found across metrics")
+        return pd.DataFrame()
+    
+    sdr_levels = sorted(all_sdr_levels)
+    
+    # Compute mean per model per metric
+    metric_means = {}
+    for metric in required_metrics:
+        metric_means[metric] = {}
+        for model in MODELS:
+            if model in combined[metric] and not combined[metric][model].empty:
+                stats = compute_stats(combined[metric][model])
+                if not stats.empty:
+                    metric_means[metric][model] = stats.set_index('sdr_orig')['mean']
+                else:
+                    metric_means[metric][model] = pd.Series(index=sdr_levels, data=np.nan)
+            else:
+                metric_means[metric][model] = pd.Series(index=sdr_levels, data=np.nan)
+    
+    # Concatenate all values to find global min/max per metric
+    all_sdr_index = pd.Index(sdr_levels)
+    
+    try:
+        all_deltasdr = pd.concat([metric_means['delta_sdr'][m].reindex(all_sdr_index) for m in MODELS])
+        all_deltapesq = pd.concat([metric_means['delta_pesq'][m].reindex(all_sdr_index) for m in MODELS])
+        all_cycles = pd.concat([metric_means['cycles'][m].reindex(all_sdr_index) for m in MODELS])
+        
+        # Remove NaN values for min/max computation
+        all_deltasdr = all_deltasdr.dropna()
+        all_deltapesq = all_deltapesq.dropna()
+        all_cycles = all_cycles.dropna()
+        
+        if all_deltasdr.empty or all_deltapesq.empty or all_cycles.empty:
+            print("Warning: Insufficient data for composite score computation")
+            return pd.DataFrame()
+        
+        min_sdr, max_sdr = all_deltasdr.min(), all_deltasdr.max()
+        min_pesq, max_pesq = all_deltapesq.min(), all_deltapesq.max()
+        min_cycles, max_cycles = all_cycles.min(), all_cycles.max()
+        
+        # Avoid division by zero in normalization
+        if max_sdr == min_sdr or max_pesq == min_pesq or max_cycles == min_cycles:
+            print("Warning: Cannot normalize - all values are identical for one or more metrics")
+            return pd.DataFrame()
+        
+        composite_scores = {}
+        
+        for model in MODELS:
+            sdr_vals = metric_means['delta_sdr'][model].reindex(all_sdr_index)
+            pesq_vals = metric_means['delta_pesq'][model].reindex(all_sdr_index)
+            cycles_vals = metric_means['cycles'][model].reindex(all_sdr_index)
+            
+            # Normalize (handle NaN values)
+            sdr_norm = (sdr_vals - min_sdr) / (max_sdr - min_sdr)
+            pesq_norm = (pesq_vals - min_pesq) / (max_pesq - min_pesq)
+            cycles_norm = (cycles_vals - min_cycles) / (max_cycles - min_cycles)
+            
+            # Invert cycles_norm so lower cycles = higher score
+            cycles_norm_inv = 1 - cycles_norm
+            
+            comp = (W_SDR * sdr_norm) + (W_PESQ * pesq_norm) + (W_CYCLES * cycles_norm_inv)
+            composite_scores[model] = comp
+        
+        composite_df = pd.DataFrame({'sdr_orig': sdr_levels})
+        for model in MODELS:
+            composite_df[model] = composite_scores[model].values
+        
+        return composite_df
+        
+    except Exception as e:
+        print(f"Error computing composite score: {str(e)}")
+        return pd.DataFrame()
+
+def plot_metrics_per_fold(data, fold, MODELS, METRICS, BASE_DIR, BAR_WIDTH, FIG_SIZE):
+    """Plot delta_sdr, delta_pesq, cycles for one fold with bar plots for each model."""
+    plot_dir = os.path.join(BASE_DIR, 'plots')
+    os.makedirs(plot_dir, exist_ok=True)
+    
+    for metric in METRICS:
+        plt.figure(figsize=FIG_SIZE)
+        
+        # Collect data for plotting
+        plot_data = []
+        for i, model in enumerate(MODELS):
+            if model not in data[metric]:
+                continue
+            
+            df = data[metric][model]
+            df_fold = df[df['fold'] == fold]
+            if df_fold.empty:
+                continue
+                
+            stats = df_fold.groupby('sdr_orig')['mean'].agg(['mean', 'std']).reset_index()
+            if stats.empty:
+                continue
+                
+            plot_data.append((i, model, stats))
+        
+        if not plot_data:
+            print(f"Warning: No data available for plotting {metric} in {fold}")
+            plt.close()
+            continue
+        
+        # Plot bars
+        x = np.arange(len(plot_data[0][2]))  # Use first model's data for x-axis
+        for i, model, stats in plot_data:
+            plt.bar(x + i * BAR_WIDTH, stats['mean'], BAR_WIDTH, 
+                   label=model, yerr=stats['std'], capsize=3)
+        
+        plt.xticks(x + (len(plot_data) - 1) * BAR_WIDTH / 2, plot_data[0][2]['sdr_orig'])
+        plt.xlabel('Original SDR (dB)')
+        plt.ylabel(metric.upper())
+        plt.title(f'{metric.upper()} Comparison - {fold}')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        plt.savefig(os.path.join(plot_dir, f"{fold}_{metric}_comparison.png"), dpi=300, bbox_inches='tight')
+        plt.close()
+
+def plot_grouped_metric(data, metric, ylabel, filename, MODELS, BASE_DIR, BAR_WIDTH, FIG_SIZE):
+    """Plot grouped metric across all models."""
+    if metric not in data or not data[metric]:
+        print(f"Warning: No data available for plotting {metric}")
+        return
+    
+    # Find common SDR levels
+    all_sdr_levels = set()
+    valid_models = []
+    
+    for model in MODELS:
+        if model in data[metric] and not data[metric][model].empty:
+            all_sdr_levels.update(data[metric][model]['sdr_orig'].unique())
+            valid_models.append(model)
+    
+    if not valid_models:
+        print(f"Warning: No valid models found for metric {metric}")
+        return
+    
+    sdr_levels = sorted(all_sdr_levels)
+    x = np.arange(len(sdr_levels))
+    
+    plt.figure(figsize=FIG_SIZE)
+    
+    plotted_models = []
+    for i, model in enumerate(valid_models):
+        stats = data[metric][model].groupby('sdr_orig')['mean'].agg(['mean', 'std']).reset_index()
+        if stats.empty:
+            continue
+        
+        # Align with common SDR levels
+        stats_aligned = stats.set_index('sdr_orig').reindex(sdr_levels).reset_index()
+        
+        # Only plot if we have data
+        valid_data = ~stats_aligned['mean'].isna()
+        if not valid_data.any():
+            continue
+        
+        plt.bar(x + i * BAR_WIDTH, stats_aligned['mean'], BAR_WIDTH, 
+               label=model, yerr=stats_aligned['std'], capsize=3)
+        plotted_models.append(model)
+    
+    if not plotted_models:
+        print(f"Warning: No data could be plotted for metric {metric}")
+        plt.close()
+        return
+    
+    plt.xticks(x + (len(plotted_models) - 1) * BAR_WIDTH / 2, sdr_levels)
+    plt.xlabel('Original SDR (dB)')
+    plt.ylabel(ylabel)
+    plt.title(f'{metric.upper()} Comparison Across Models')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    plot_dir = os.path.join(BASE_DIR, 'plots')
+    os.makedirs(plot_dir, exist_ok=True)
+    full_path = os.path.join(plot_dir, filename)
+    plt.savefig(full_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Saved plot: {full_path}")
+
+def save_summary_tables(combined, rel_impr, speedup, composite_df, output_dir, BASE_DIR, FOLDS, MODELS, METRICS, DURATION, W_SDR, W_PESQ, W_CYCLES):
+    """Save comprehensive summary tables as CSV files."""
+    print(f"\nSaving statistical results to: {output_dir}")
+    
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # 1. Save mean and std per metric & model
+    print("Saving mean and std statistics...")
+    for metric in METRICS:
+        all_model_stats = []
+        
+        for model in MODELS:
+            if metric not in combined or model not in combined[metric]:
+                continue
+                
+            stats = compute_stats(combined[metric][model])
+            if stats.empty:
+                continue
+            
+            # Add model column for identification
+            stats['model'] = model
+            stats['metric'] = metric
+            all_model_stats.append(stats)
+        
+        if all_model_stats:
+            # Combine all models for this metric
+            metric_df = pd.concat(all_model_stats, ignore_index=True)
+            # Reorder columns for better readability
+            metric_df = metric_df[['metric', 'model', 'sdr_orig', 'mean', 'std']]
+            
+            filename = f"stats_{metric}_mean_std.csv"
+            filepath = os.path.join(output_dir, filename)
+            metric_df.to_csv(filepath, index=False, float_format='%.6f')
+            print(f"  Saved: {filename}")
+    
+    # 2. Save all metrics combined in one file
+    print("Saving combined statistics...")
+    all_combined_stats = []
+    for metric in METRICS:
+        for model in MODELS:
+            if metric not in combined or model not in combined[metric]:
+                continue
+                
+            stats = compute_stats(combined[metric][model])
+            if stats.empty:
+                continue
+            
+            stats['model'] = model
+            stats['metric'] = metric
+            all_combined_stats.append(stats)
+    
+    if all_combined_stats:
+        combined_df = pd.concat(all_combined_stats, ignore_index=True)
+        combined_df = combined_df[['metric', 'model', 'sdr_orig', 'mean', 'std']]
+        
+        filepath = os.path.join(output_dir, "stats_all_metrics_combined.csv")
+        combined_df.to_csv(filepath, index=False, float_format='%.6f')
+        print(f"  Saved: stats_all_metrics_combined.csv")
+    
+    # 3. Save relative improvement data
+    if rel_impr:
+        print("Saving relative improvement statistics...")
+        all_rel_impr = []
+        
+        for metric, models_dict in rel_impr.items():
+            for model, df in models_dict.items():
+                if df.empty:
+                    continue
+                
+                df_copy = df.copy()
+                df_copy['model'] = model
+                df_copy['metric'] = metric
+                
+                # The df from compute_relative_improvement should have columns: ['sdr_orig', improvement_values]
+                # We need to rename the second column appropriately
+                cols = list(df_copy.columns)
+                if len(cols) >= 2:
+                    # Find the column that's not 'sdr_orig', 'model', or 'metric'
+                    value_col = None
+                    for col in cols:
+                        if col not in ['sdr_orig', 'model', 'metric']:
+                            value_col = col
+                            break
+                    
+                    if value_col is not None:
+                        df_copy = df_copy.rename(columns={value_col: 'relative_improvement_pct'})
+                
+                all_rel_impr.append(df_copy)
+        
+        if all_rel_impr:
+            rel_impr_df = pd.concat(all_rel_impr, ignore_index=True)
+            
+            # Ensure we have the expected columns
+            expected_cols = ['metric', 'model', 'sdr_orig', 'relative_improvement_pct']
+            available_cols = [col for col in expected_cols if col in rel_impr_df.columns]
+            
+            if len(available_cols) >= 3:  # At minimum we need metric, model, sdr_orig
+                rel_impr_df = rel_impr_df[available_cols]
+                
+                filepath = os.path.join(output_dir, "stats_relative_improvement.csv")
+                rel_impr_df.to_csv(filepath, index=False, float_format='%.4f')
+                print(f"  Saved: stats_relative_improvement.csv")
+            else:
+                print("  Warning: Could not save relative improvement - missing required columns")
+    
+    # 4. Save speedup data
+    if speedup:
+        print("Saving speedup statistics...")
+        all_speedup = []
+        
+        for model, df in speedup.items():
+            if df.empty:
+                continue
+            
+            df_copy = df.copy()
+            df_copy['model'] = model
+            df_copy['metric'] = 'cycles_speedup'
+            
+            # The df from compute_speedup_ratio should have columns: ['sdr_orig', speedup_values]
+            # We need to rename the second column appropriately
+            cols = list(df_copy.columns)
+            if len(cols) >= 2:
+                # Find the column that's not 'sdr_orig', 'model', or 'metric'
+                value_col = None
+                for col in cols:
+                    if col not in ['sdr_orig', 'model', 'metric']:
+                        value_col = col
+                        break
+                
+                if value_col is not None:
+                    df_copy = df_copy.rename(columns={value_col: 'speedup_ratio'})
+            
+            all_speedup.append(df_copy)
+        
+        if all_speedup:
+            speedup_df = pd.concat(all_speedup, ignore_index=True)
+            
+            # Ensure we have the expected columns
+            expected_cols = ['metric', 'model', 'sdr_orig', 'speedup_ratio']
+            available_cols = [col for col in expected_cols if col in speedup_df.columns]
+            
+            if len(available_cols) >= 3:  # At minimum we need metric, model, sdr_orig
+                speedup_df = speedup_df[available_cols]
+                
+                filepath = os.path.join(output_dir, "stats_speedup_ratios.csv")
+                speedup_df.to_csv(filepath, index=False, float_format='%.4f')
+                print(f"  Saved: stats_speedup_ratios.csv")
+            else:
+                print("  Warning: Could not save speedup ratios - missing required columns")
+    
+    # 5. Save composite scores
+    if not composite_df.empty:
+        print("Saving composite scores...")
+        
+        # Add metadata about weights
+        weights_info = pd.DataFrame({
+            'metric': ['delta_sdr', 'delta_pesq', 'cycles'],
+            'weight': [W_SDR, W_PESQ, W_CYCLES],
+            'description': [
+                'Higher is better - normalized 0-1',
+                'Higher is better - normalized 0-1', 
+                'Lower is better - inverted and normalized 0-1'
+            ]
+        })
+        
+        # Save weights info
+        weights_filepath = os.path.join(output_dir, "composite_score_weights.csv")
+        weights_info.to_csv(weights_filepath, index=False)
+        print(f"  Saved: composite_score_weights.csv")
+        
+        # Save composite scores
+        composite_filepath = os.path.join(output_dir, "stats_composite_scores.csv")
+        composite_df.to_csv(composite_filepath, index=False, float_format='%.6f')
+        print(f"  Saved: stats_composite_scores.csv")
+    
+    # 6. Create a summary report
+    print("Creating summary report...")
+    summary_lines = []
+    summary_lines.append("AUDIO DECLIPPING ANALYSIS SUMMARY")
+    summary_lines.append("=" * 50)
+    summary_lines.append(f"Analysis Date: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    summary_lines.append(f"Base Directory: {BASE_DIR}")
+    summary_lines.append(f"Processed Folds: {', '.join(FOLDS)}")
+    summary_lines.append(f"Models Analyzed: {', '.join(MODELS)}")
+    summary_lines.append(f"Metrics Evaluated: {', '.join(METRICS)}")
+    summary_lines.append(f"Duration Filter: {DURATION}s")
+    summary_lines.append("")
+    
+    # Data loading summary
+    summary_lines.append("DATA LOADING SUMMARY:")
+    summary_lines.append("-" * 30)
+    for metric in METRICS:
+        summary_lines.append(f"\n{metric.upper()}:")
+        for model in MODELS:
+            if metric in combined and model in combined[metric]:
+                count = len(combined[metric][model])
+                summary_lines.append(f"  {model}: {count} records")
+            else:
+                summary_lines.append(f"  {model}: 0 records")
+    
+    summary_lines.append("\nFILES GENERATED:")
+    summary_lines.append("-" * 20)
+    
+    # List generated files
+    csv_files = [f for f in os.listdir(output_dir) if f.endswith('.csv')]
+    for csv_file in sorted(csv_files):
+        summary_lines.append(f"  {csv_file}")
+    
+    # Composite score info
+    if not composite_df.empty:
+        summary_lines.append(f"\nCOMPOSITE SCORE WEIGHTS:")
+        summary_lines.append(f"  SDR Weight: {W_SDR}")
+        summary_lines.append(f"  PESQ Weight: {W_PESQ}")
+        summary_lines.append(f"  Cycles Weight: {W_CYCLES}")
+    
+    # Save summary
+    summary_filepath = os.path.join(output_dir, "analysis_summary.txt")
+    with open(summary_filepath, 'w') as f:
+        f.write('\n'.join(summary_lines))
+    
+    print(f"  Saved: analysis_summary.txt")
+    print(f"\nAll statistical results saved to: {output_dir}")
+    print(f"Total CSV files generated: {len([f for f in os.listdir(output_dir) if f.endswith('.csv')])}")
+
+
+
+def plot_comparison_all_folds_speech(BASE_DIR):
+    # Constants
+    # BASE_DIR = "/data2/AAG/Audio_Declip/exp_ml/speech_sound/kfold_data"
+    FOLDS = [f"fold_{i}" for i in range(1, 6)]  # fold_1 to fold_4
+    MODELS = ["Baseline", "Dynamic", "ML2"]
+    METRICS = ["delta_sdr", "delta_pesq", "cycles", "processing_time"]
+    DURATION = "4.0"
+    BAR_WIDTH = 0.15
+    FIG_SIZE = (12, 6)
+
+    # Composite weights (adjust as needed)
+    W_SDR = 0.3
+    W_PESQ = 0.5
+    W_CYCLES = 0.2  # Since cycles is "better" when smaller, we'll subtract normalized cycles
+    """Main execution function."""
+    print("Starting audio declipping analysis...")
+    print(f"Base directory: {BASE_DIR}")
+    print(f"Processing folds: {FOLDS}")
+    print(f"Models: {MODELS}")
+    print(f"Metrics: {METRICS}")
+    
+    # Load and process data
+    print("\nLoading and processing data...")
+    combined = load_and_process_data(MODELS, FOLDS, BASE_DIR, DURATION, METRICS)
+    
+    # Verify data was loaded
+    data_summary = {}
+    for metric in METRICS:
+        data_summary[metric] = {}
+        for model in MODELS:
+            if metric in combined and model in combined[metric]:
+                data_summary[metric][model] = len(combined[metric][model])
+            else:
+                data_summary[metric][model] = 0
+    
+    # print("\nData loading summary:")
+    # for metric in METRICS:
+    #     print(f"\n{metric}:")
+    #     for model in MODELS:
+    #         print(f"  {model}: {data_summary[metric][model]} records")
+    
+    # Create plots directory
+    plot_dir = os.path.join(BASE_DIR, 'plots')
+    os.makedirs(plot_dir, exist_ok=True)
+    print(f"\nPlots will be saved to: {plot_dir}")
+    
+    # Plot per fold
+    print("\nGenerating per-fold plots...")
+    for fold in FOLDS:
+        plot_metrics_per_fold(combined, fold, MODELS, METRICS, BASE_DIR, BAR_WIDTH, FIG_SIZE)
+    
+    # Plot grouped metrics across all folds combined
+    print("\nGenerating grouped plots...")
+    plot_grouped_metric(combined, 'delta_sdr', 'ΔSDR (dB)', 'delta_sdr_grouped.png', MODELS, BASE_DIR, BAR_WIDTH, FIG_SIZE)
+    plot_grouped_metric(combined, 'delta_pesq', 'ΔPESQ', 'delta_pesq_grouped.png', MODELS, BASE_DIR, BAR_WIDTH, FIG_SIZE)
+    plot_grouped_metric(combined, 'cycles', 'Cycles', 'cycles_grouped.png', MODELS, BASE_DIR, BAR_WIDTH, FIG_SIZE) 
+    
+    # Compute analysis metrics
+    print("\nComputing analysis metrics...")
+    rel_impr = compute_relative_improvement(combined, METRICS, MODELS)
+    speedup = compute_speedup_ratio(combined, MODELS)
+    composite_df = compute_composite_score(combined, MODELS, W_SDR, W_PESQ, W_CYCLES)
+    
+    # Save all statistics to CSV files
+    stats_dir = os.path.join(BASE_DIR, 'statistics')
+    save_summary_tables(combined, rel_impr, speedup, composite_df, stats_dir, BASE_DIR, FOLDS, MODELS, METRICS, DURATION, W_SDR, W_PESQ, W_CYCLES)
+    
+    print(f"\nAnalysis complete!")
+    print(f"  - Plots saved to: {plot_dir}")
+    print(f"  - Statistics saved to: {stats_dir}")
+
+
+
+def combine_fold_metric_csvs(base_dir,
+                             folds=(1, 2, 3, 4, 5),
+                             plots_subdir="all_model_plots_16_0.3_4.0",
+                             outfile="all_folds_all_metrics.csv",
+                             rename_sdr_col=True):
+    """
+    Scan `base_dir/fold_x/<plots_subdir>/all_models_*_1sec.csv` for every fold,
+    add 'fold' and 'metric' columns, concatenate, and save one grand CSV.
+
+    Parameters
+    ----------
+    base_dir : str
+        Path that contains the `fold_1`, `fold_2`, … directories.
+    folds : iterable
+        Which fold numbers to include. Default (1-5).
+    plots_subdir : str
+        The sub-folder under each fold that holds the CSV files.
+    outfile : str
+        Name (or absolute path) for the combined file that will be written
+        inside `base_dir/statistics/`.
+    rename_sdr_col : bool
+        When True, renames the column `sdr_orig_rounded` → `sdr_orig`
+        so downstream code can treat all files the same.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The concatenated, annotated table.
+    """
+
+    all_frames = []
+
+    for fold in folds:
+        fold_dir = os.path.join(base_dir, f"fold_{fold}", plots_subdir)
+        pattern  = os.path.join(fold_dir, "all_models_*_1sec.csv")
+
+        for csv_path in glob.glob(pattern):
+            # metric name is the bit between 'all_models_' and '_1sec.csv'
+            metric = os.path.basename(csv_path)[
+                len("all_models_") : -len("_1sec.csv")
+            ]
+
+            df = pd.read_csv(csv_path)
+
+            if rename_sdr_col and "sdr_orig_rounded" in df.columns:
+                df = df.rename(columns={"sdr_orig_rounded": "sdr_orig"})
+
+            df["fold"]   = f"fold_{fold}"
+            df["metric"] = metric           # cycles / delta_pesq / delta_sdr …
+
+            all_frames.append(df)
+
+    if not all_frames:
+        raise FileNotFoundError("No matching CSV files were found.")
+
+    combined = pd.concat(all_frames, ignore_index=True)
+
+    # Consistent column ordering (optional — adjust to taste)
+    preferred_order = (
+        ["metric", "fold", "Model", "sdr_orig", "mean", "std", "Duration"]
+        if "sdr_orig" in combined.columns
+        else None
+    )
+    if preferred_order:
+        keep = [c for c in preferred_order if c in combined.columns]
+        rest = [c for c in combined.columns if c not in keep]
+        combined = combined[keep + rest]
+
+    # Make an output folder alongside your other statistics
+    out_dir = os.path.join(base_dir, "statistics")
+    os.makedirs(out_dir, exist_ok=True)
+
+    out_path = os.path.join(out_dir, outfile)
+    combined.to_csv(out_path, index=False, float_format="%.6f")
+
+    print(f"✔ Combined table written to {out_path}")
+    print(f"   Rows: {len(combined):,} · Columns: {combined.shape[1]}")
+
+    return combined

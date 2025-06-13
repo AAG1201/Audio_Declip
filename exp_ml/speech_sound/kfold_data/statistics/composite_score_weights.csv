@@ -1,0 +1,4 @@
+metric,weight,description
+delta_sdr,0.3,Higher is better - normalized 0-1
+delta_pesq,0.5,Higher is better - normalized 0-1
+cycles,0.2,Lower is better - inverted and normalized 0-1

@@ -1,0 +1,13 @@
+metric,model,sdr_orig,mean,std
+processing_time,Baseline,1.000000,67.539722,3.319935
+processing_time,Baseline,3.000000,87.431075,3.380766
+processing_time,Baseline,5.000000,94.313612,2.852222
+processing_time,Baseline,7.000000,98.453628,2.218391
+processing_time,Dynamic,1.000000,56.329263,2.076783
+processing_time,Dynamic,3.000000,72.014059,2.558812
+processing_time,Dynamic,5.000000,78.542867,1.248440
+processing_time,Dynamic,7.000000,83.809000,5.337107
+processing_time,ML2,1.000000,38.262701,1.419405
+processing_time,ML2,3.000000,47.951179,0.603019
+processing_time,ML2,5.000000,51.908436,0.382038
+processing_time,ML2,7.000000,53.612897,0.433111

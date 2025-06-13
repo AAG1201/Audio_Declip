@@ -1,0 +1,13 @@
+metric,model,sdr_orig,mean,std
+delta_sdr,Baseline,1.000000,5.043402,0.425327
+delta_sdr,Baseline,3.000000,7.373769,0.434983
+delta_sdr,Baseline,5.000000,8.022982,0.521794
+delta_sdr,Baseline,7.000000,8.382966,0.699755
+delta_sdr,Dynamic,1.000000,4.794245,0.357543
+delta_sdr,Dynamic,3.000000,7.446425,0.458066
+delta_sdr,Dynamic,5.000000,8.105901,0.529100
+delta_sdr,Dynamic,7.000000,8.508622,0.683265
+delta_sdr,ML2,1.000000,4.765811,0.233143
+delta_sdr,ML2,3.000000,7.749590,0.388180
+delta_sdr,ML2,5.000000,8.558242,0.447273
+delta_sdr,ML2,7.000000,8.958153,0.509139

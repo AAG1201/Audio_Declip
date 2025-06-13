@@ -1,0 +1,49 @@
+AUDIO DECLIPPING ANALYSIS SUMMARY
+==================================================
+Analysis Date: 2025-06-10 15:21:57
+Base Directory: exp_ml/speech_sound/kfold_data
+Processed Folds: fold_1, fold_2, fold_3, fold_4, fold_5
+Models Analyzed: Baseline, Dynamic, ML2
+Metrics Evaluated: delta_sdr, delta_pesq, cycles, processing_time
+Duration Filter: 4.0s
+
+DATA LOADING SUMMARY:
+------------------------------
+
+DELTA_SDR:
+  Baseline: 20 records
+  Dynamic: 20 records
+  ML2: 20 records
+
+DELTA_PESQ:
+  Baseline: 20 records
+  Dynamic: 20 records
+  ML2: 20 records
+
+CYCLES:
+  Baseline: 20 records
+  Dynamic: 20 records
+  ML2: 20 records
+
+PROCESSING_TIME:
+  Baseline: 20 records
+  Dynamic: 20 records
+  ML2: 20 records
+
+FILES GENERATED:
+--------------------
+  all_folds_all_metrics.csv
+  composite_score_weights.csv
+  stats_all_metrics_combined.csv
+  stats_composite_scores.csv
+  stats_cycles_mean_std.csv
+  stats_delta_pesq_mean_std.csv
+  stats_delta_sdr_mean_std.csv
+  stats_processing_time_mean_std.csv
+  stats_relative_improvement.csv
+  stats_speedup_ratios.csv
+
+COMPOSITE SCORE WEIGHTS:
+  SDR Weight: 0.3
+  PESQ Weight: 0.5
+  Cycles Weight: 0.2
